@@ -343,6 +343,29 @@ Extended NVIDIA hardware detail metrics (NUMA topology, GSP firmware, NvLink top
 - `all_smi_gpu_gsp_firmware_version_info`: the `version` label carries a string such as `"550.54.15"`. Because the version is static for the lifetime of the driver, it is cached after the first successful NVML call.
 - `all_smi_nvlink_remote_device_type`: one metric row is emitted per active NvLink. A GPU with no active links produces no rows for this metric family.
 - GPM ratios require a two-sample handshake. The first poll stores a sample and emits nothing; subsequent polls publish ratios/rates. Unknown fields stay absent (never `0`). Disable the NVML GPM path with `ALL_SMI_NVIDIA_DISABLE_GPM=1` (used to exercise DCGM fallbacks).
+
+### NVIDIA NVML Extras (P2)
+
+| Metric | Description | Unit | Labels |
+|--------|-------------|------|--------|
+| `all_smi_gpu_throttle_reason` | Active NVML clock-throttle reason (`1` when set) | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `reason` |
+| `all_smi_gpu_energy_hw_millijoules_total` | NVML hardware energy counter since driver load | millijoules (counter) | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_remapped_rows` | HBM remapped row counts | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `cause` (`correctable`/`uncorrectable`) |
+| `all_smi_gpu_remapping_pending` | `1` when remapping awaits a reset | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_remapping_failed` | `1` when remapping failed | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_nvlink_errors_total` | NVLink error counters | counter | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `link`, `type` |
+| `all_smi_gpu_utilization_sample_p50` / `_p95` / `_max` | Summaries of recent NVML GpuUtilization samples | percent | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_xid_events_total` | Cumulative XID/ECC events since process start | counter | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `xid` |
+| `all_smi_process_gpu_sm_active_ratio` | Per-process SM active fraction | ratio | process labels |
+| `all_smi_process_gpu_mem_active_ratio` | Per-process GPU memory active fraction | ratio | process labels |
+| `all_smi_process_enc_active_ratio` / `all_smi_process_dec_active_ratio` | Per-process encoder/decoder active fraction | ratio | process labels |
+
+**Notes:**
+- `all_smi_gpu_energy_hw_millijoules_total` is the hardware counter from `nvmlDeviceGetTotalEnergyConsumption`. It is distinct from the software-integrated `all_smi_energy_consumed_joules_total`; both are exported.
+- PCIe throughput falls back to `nvmlDeviceGetPcieThroughput` when GPM PCIe fields are absent (`source="nvml"` on those gauges).
+- Filter DSL: `throttle==sw_power_cap`, `throttled==1` / `throttled==true`.
+- Users-tab `POWER*` uses SM-share weighting when process SM util is present (`POWER*sm`), otherwise VRAM share.
+
 - To simulate the full set of extended hardware detail metrics (including the thermal thresholds and `performance_state` listed in the NVIDIA GPU Specific Metrics table above) in development/testing without a modern NVIDIA driver, set `ALL_SMI_MOCK_HARDWARE_DETAILS=1` when running with the `mock` feature. When unset, the mock omits these families to simulate an older driver that does not expose the underlying NVML APIs.
 
 ### NVIDIA vGPU Metrics

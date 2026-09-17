@@ -23,8 +23,8 @@ use regex::Regex;
 use crate::device::types::{GPU_METRIC_UNAVAILABLE, MAX_GPU_FAN_RPM};
 use crate::device::{
     AppleSiliconCpuInfo, CpuInfo, CpuPlatformType, GpmMetrics, GpuInfo, MemoryInfo, MigGpuInfo,
-    MigInstanceInfo, NvLinkRemoteDevice, NvLinkRemoteType, TelemetrySource, VgpuHostInfo,
-    VgpuInfo,
+    MigInstanceInfo, NvLinkErrorCount, NvLinkRemoteDevice, NvLinkRemoteType, RemappedRowsInfo,
+    TelemetrySource, ThrottleReasons, UtilizationSample, VgpuHostInfo, VgpuInfo,
 };
 use crate::storage::info::StorageInfo;
 
@@ -82,6 +82,10 @@ pub struct ParsedProcessRow {
     /// aggregator treats unknown as "youngest" so mixed fleets don't
     /// let unattributed processes win the "LONGEST" column.
     pub start_time_seconds: u64,
+    /// Per-process SM util percent (0-100) when
+    /// `all_smi_process_gpu_sm_active_ratio` was present. `None` means
+    /// unknown — Users-tab power weighting falls back to VRAM share.
+    pub sm_util_pct: Option<u32>,
 }
 
 impl ParsedProcessRow {
@@ -108,6 +112,9 @@ impl ParsedProcessRow {
             gpu_memory_bytes: process.used_memory,
             cpu_pct_tenths,
             start_time_seconds: start_seconds,
+            sm_util_pct: process.gpu_mem_util.map(|_| {
+                process.gpu_utilization.round().clamp(0.0, 100.0) as u32
+            }),
         }
     }
 }
@@ -371,6 +378,10 @@ impl MetricsParser {
                 let tenths = (value.max(0.0) * 10.0).round() as u32;
                 row.cpu_pct_tenths = tenths;
             }
+            "process_gpu_sm_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                row.sm_util_pct = Some((value * 100.0).round() as u32);
+            }
             _ => {}
         }
     }
@@ -511,6 +522,12 @@ impl MetricsParser {
                 gsp_firmware_version: None,
                 nvlink_remote_devices: Vec::new(),
                 gpm_metrics: None,
+                throttle_reasons: None,
+                energy_hw_millijoules: None,
+                remapped_rows: None,
+                nvlink_errors: Vec::new(),
+                utilization_samples: None,
+                xid_event_counts: HashMap::new(),
                 detail,
             }
         });
@@ -819,6 +836,81 @@ impl MetricsParser {
                     gpm.nvofa_active = Some(value as f32);
                     apply_gpm_source(gpm, labels);
                 }
+            "gpu_throttle_reason" => {
+                let reason = labels.get("reason").map(String::as_str).unwrap_or("");
+                if let Some(partial) = ThrottleReasons::from_label(reason) {
+                    let existing = gpu_info.throttle_reasons.get_or_insert_with(ThrottleReasons::default);
+                    *existing = ThrottleReasons {
+                        gpu_idle: existing.gpu_idle || partial.gpu_idle,
+                        app_clocks: existing.app_clocks || partial.app_clocks,
+                        sw_power_cap: existing.sw_power_cap || partial.sw_power_cap,
+                        hw_slowdown: existing.hw_slowdown || partial.hw_slowdown,
+                        sync_boost: existing.sync_boost || partial.sync_boost,
+                        sw_thermal: existing.sw_thermal || partial.sw_thermal,
+                        hw_thermal: existing.hw_thermal || partial.hw_thermal,
+                        hw_power_brake: existing.hw_power_brake || partial.hw_power_brake,
+                        display_clocks: existing.display_clocks || partial.display_clocks,
+                    };
+                }
+            }
+            "gpu_energy_hw_millijoules_total" if value.is_finite() && value >= 0.0 => {
+                gpu_info.energy_hw_millijoules = Some(value as u64);
+            }
+            "gpu_remapped_rows" => {
+                let cause = labels.get("cause").map(String::as_str).unwrap_or("");
+                let remap = gpu_info.remapped_rows.get_or_insert_with(RemappedRowsInfo::default);
+                match cause {
+                    "correctable" => remap.correctable = value.max(0.0) as u32,
+                    "uncorrectable" => remap.uncorrectable = value.max(0.0) as u32,
+                    _ => {}
+                }
+            }
+            "gpu_remapping_pending" => {
+                let remap = gpu_info.remapped_rows.get_or_insert_with(RemappedRowsInfo::default);
+                remap.pending = value >= 0.5;
+            }
+            "gpu_remapping_failed" => {
+                let remap = gpu_info.remapped_rows.get_or_insert_with(RemappedRowsInfo::default);
+                remap.failed = value >= 0.5;
+            }
+            "gpu_nvlink_errors_total" => {
+                let link = labels
+                    .get("link")
+                    .and_then(|s| s.parse::<u32>().ok())
+                    .unwrap_or(0);
+                let error_type = labels
+                    .get("type")
+                    .cloned()
+                    .unwrap_or_else(|| "unknown".to_string());
+                gpu_info.nvlink_errors.push(NvLinkErrorCount {
+                    link_index: link,
+                    error_type,
+                    count: value.max(0.0) as u64,
+                });
+            }
+            "gpu_utilization_sample_p50"
+                | "gpu_utilization_sample_p95"
+                | "gpu_utilization_sample_max"
+                if value.is_finite() => {
+                // Summaries only — raw samples stay local/JSON. Stash a
+                // synthetic single-point sample so presence is visible.
+                let samples = gpu_info
+                    .utilization_samples
+                    .get_or_insert_with(Vec::new);
+                samples.push(UtilizationSample {
+                    timestamp_us: 0,
+                    value: value as f32,
+                });
+            }
+            "gpu_xid_events_total" => {
+                if let Some(xid_s) = labels.get("xid")
+                    && let Ok(xid) = xid_s.parse::<u32>()
+                {
+                    gpu_info
+                        .xid_event_counts
+                        .insert(xid, value.max(0.0) as u64);
+                }
+            }
             "npu_firmware_info" => {
                 // Handle NPU-specific firmware info metric
                 crate::extract_label_to_detail!(labels, "firmware", gpu_info.detail);
@@ -1744,6 +1836,12 @@ mod tests {
             gsp_firmware_version: None,
             nvlink_remote_devices: Vec::new(),
             gpm_metrics: None,
+            throttle_reasons: None,
+            energy_hw_millijoules: None,
+            remapped_rows: None,
+            nvlink_errors: Vec::new(),
+            utilization_samples: None,
+            xid_event_counts: HashMap::new(),
             detail: HashMap::new(),
         }
     }

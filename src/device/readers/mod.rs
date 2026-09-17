@@ -34,8 +34,10 @@ pub mod gaudi;
 #[cfg(target_os = "linux")]
 pub mod google_tpu;
 pub mod nvidia;
+pub mod nvidia_extras;
 pub mod nvidia_gpm;
 pub mod nvidia_hardware;
+pub mod nvidia_xid;
 pub mod nvidia_jetson;
 pub mod nvidia_mig;
 pub mod nvidia_vgpu;

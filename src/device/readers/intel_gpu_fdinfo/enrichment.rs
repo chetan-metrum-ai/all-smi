@@ -101,6 +101,9 @@ pub fn build_intel_process_infos(
             // Per-process engine-time utilization is the deferred
             // stretch goal of issue #247; v1 reports zero.
             gpu_utilization: 0.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         });
     }
     out

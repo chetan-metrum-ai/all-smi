@@ -391,6 +391,12 @@ mod tests {
                 gsp_firmware_version: None,
                 nvlink_remote_devices: Vec::new(),
                 gpm_metrics: None,
+                throttle_reasons: None,
+                energy_hw_millijoules: None,
+                remapped_rows: None,
+                nvlink_errors: Vec::new(),
+                utilization_samples: None,
+                xid_event_counts: std::collections::HashMap::new(),
                 detail: {
                     let mut m = std::collections::HashMap::new();
                     m.insert("index".to_string(), i.to_string());
@@ -480,6 +486,12 @@ mod tests {
                 gsp_firmware_version: None,
                 nvlink_remote_devices: Vec::new(),
                 gpm_metrics: None,
+                throttle_reasons: None,
+                energy_hw_millijoules: None,
+                remapped_rows: None,
+                nvlink_errors: Vec::new(),
+                utilization_samples: None,
+                xid_event_counts: std::collections::HashMap::new(),
                 detail: std::collections::HashMap::new(),
             });
         }
@@ -576,6 +588,9 @@ mod tests {
             ppid: 0,
             threads: 1,
             uses_gpu: false,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         });
         let snapshot = RenderSnapshot::capture(&mut state);
         let mut cache = ViewCache::new();
@@ -614,6 +629,9 @@ mod tests {
             ppid: 0,
             threads: 1,
             uses_gpu: true,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         });
         // Process without GPU memory
         state.process_info.push(ProcessInfo {
@@ -637,6 +655,9 @@ mod tests {
             ppid: 0,
             threads: 1,
             uses_gpu: false,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         });
         let snapshot = RenderSnapshot::capture(&mut state);
         let mut cache = ViewCache::new();

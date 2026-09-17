@@ -1,0 +1,231 @@
+# HELP all_smi_up 1 once the exporter has completed a collection cycle, 0 before that
+# TYPE all_smi_up gauge
+all_smi_up{instance="shadecloud", hostname="shadecloud"} 1
+# HELP all_smi_build_info Build information for the running all-smi binary; always 1
+# TYPE all_smi_build_info gauge
+all_smi_build_info{instance="shadecloud", hostname="shadecloud", version="0.26.3", os="linux", arch="x86_64"} 1
+# HELP all_smi_gpu_utilization GPU utilization percentage (omitted when the device reports no utilization)
+# TYPE all_smi_gpu_utilization gauge
+all_smi_gpu_utilization{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 0
+# HELP all_smi_gpu_memory_used_bytes GPU memory used in bytes
+# TYPE all_smi_gpu_memory_used_bytes gauge
+all_smi_gpu_memory_used_bytes{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 0
+# HELP all_smi_gpu_memory_total_bytes GPU memory total in bytes
+# TYPE all_smi_gpu_memory_total_bytes gauge
+all_smi_gpu_memory_total_bytes{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 85520809984
+# HELP all_smi_gpu_temperature_celsius GPU temperature in celsius (omitted when no sensor reports one)
+# TYPE all_smi_gpu_temperature_celsius gauge
+all_smi_gpu_temperature_celsius{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 33
+# HELP all_smi_gpu_power_consumption_watts GPU power consumption in watts (omitted when the device reports no power)
+# TYPE all_smi_gpu_power_consumption_watts gauge
+all_smi_gpu_power_consumption_watts{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 45.616
+# HELP all_smi_gpu_frequency_mhz GPU frequency in MHz (omitted when the device exposes no clock probe)
+# TYPE all_smi_gpu_frequency_mhz gauge
+all_smi_gpu_frequency_mhz{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 345
+# HELP all_smi_ane_utilization ANE utilization in mW (omitted when the native metrics source is unavailable)
+# TYPE all_smi_ane_utilization gauge
+all_smi_ane_utilization{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 0
+# HELP all_smi_gpu_info GPU/NPU device information
+# TYPE all_smi_gpu_info gauge
+all_smi_gpu_info{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", type="GPU", pcie_width="x16", cuda_version="13.0", architecture="Hopper", pcie_generation="4", power_limit_min="200.00", brand="Nvidia", power_limit_current="350.00", lib_version="13.0", mig_mode_current="0", pcie_width_max="16", clock_graphics_max="1755", compute_mode="Default", vbios_version="96.00.74.00.1C", lib_name="CUDA", power_limit_default="310.00", ecc_mode_current="Enabled", power_limit_max="350.00", pcie_gen_max="4", driver_version="580.126.09", performance_state="Zero"} 1
+# HELP all_smi_gpu_clock_graphics_max_mhz Maximum graphics clock in MHz
+# TYPE all_smi_gpu_clock_graphics_max_mhz gauge
+all_smi_gpu_clock_graphics_max_mhz{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 1755
+# HELP all_smi_gpu_power_limit_current_watts Current power limit in watts
+# TYPE all_smi_gpu_power_limit_current_watts gauge
+all_smi_gpu_power_limit_current_watts{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 350
+# HELP all_smi_gpu_power_limit_max_watts Maximum power limit in watts
+# TYPE all_smi_gpu_power_limit_max_watts gauge
+all_smi_gpu_power_limit_max_watts{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 350
+# HELP all_smi_gpu_performance_state GPU performance state (0=P0 fastest, 15=P15 idlest; metric is omitted when the device does not report a P-state)
+# TYPE all_smi_gpu_performance_state gauge
+all_smi_gpu_performance_state{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 0
+# HELP all_smi_gpu_temperature_threshold_slowdown_celsius GPU slowdown temperature threshold in Celsius
+# TYPE all_smi_gpu_temperature_threshold_slowdown_celsius gauge
+all_smi_gpu_temperature_threshold_slowdown_celsius{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 95
+# HELP all_smi_gpu_temperature_threshold_shutdown_celsius GPU shutdown temperature threshold in Celsius
+# TYPE all_smi_gpu_temperature_threshold_shutdown_celsius gauge
+all_smi_gpu_temperature_threshold_shutdown_celsius{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 101
+# HELP all_smi_gpu_temperature_threshold_max_operating_celsius GPU maximum operating temperature threshold in Celsius
+# TYPE all_smi_gpu_temperature_threshold_max_operating_celsius gauge
+all_smi_gpu_temperature_threshold_max_operating_celsius{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 91
+# HELP all_smi_cpu_info CPU device information
+# TYPE all_smi_cpu_info gauge
+all_smi_cpu_info{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", index="0", architecture="x86_64", platform_type="Intel"} 1
+# HELP all_smi_cpu_utilization CPU utilization percentage
+# TYPE all_smi_cpu_utilization gauge
+all_smi_cpu_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", index="0"} 0.0950118750333786
+# HELP all_smi_cpu_socket_count Number of CPU sockets
+# TYPE all_smi_cpu_socket_count gauge
+all_smi_cpu_socket_count{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", index="0"} 1
+# HELP all_smi_cpu_core_count Total number of CPU cores
+# TYPE all_smi_cpu_core_count gauge
+all_smi_cpu_core_count{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", index="0"} 20
+# HELP all_smi_cpu_thread_count Total number of CPU threads
+# TYPE all_smi_cpu_thread_count gauge
+all_smi_cpu_thread_count{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", index="0"} 20
+# HELP all_smi_cpu_frequency_mhz CPU frequency in MHz
+# TYPE all_smi_cpu_frequency_mhz gauge
+all_smi_cpu_frequency_mhz{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", index="0"} 2200
+# HELP all_smi_cpu_socket_utilization Per-socket CPU utilization percentage
+# TYPE all_smi_cpu_socket_utilization gauge
+all_smi_cpu_socket_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", cpu_index="0", socket_id="0"} 0.0950118750333786
+# HELP all_smi_cpu_socket_frequency_mhz Per-socket CPU frequency in MHz
+# TYPE all_smi_cpu_socket_frequency_mhz gauge
+all_smi_cpu_socket_frequency_mhz{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", cpu_index="0", socket_id="0"} 2200
+# HELP all_smi_cpu_core_utilization Per-core CPU utilization percentage
+# TYPE all_smi_cpu_core_utilization gauge
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="0", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="1", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="2", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="3", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="4", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="5", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="6", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="7", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="8", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="9", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="10", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="11", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="12", core_type="C"} 0.9523810148239136
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="13", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="14", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="15", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="16", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="17", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="18", core_type="C"} 0
+all_smi_cpu_core_utilization{cpu_model="Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz", instance="shadecloud", hostname="shadecloud", core_id="19", core_type="C"} 0
+# HELP all_smi_memory_total_bytes Total system memory in bytes
+# TYPE all_smi_memory_total_bytes gauge
+all_smi_memory_total_bytes{instance="shadecloud", hostname="shadecloud", index="0"} 135164317696
+# HELP all_smi_memory_used_bytes Used system memory in bytes
+# TYPE all_smi_memory_used_bytes gauge
+all_smi_memory_used_bytes{instance="shadecloud", hostname="shadecloud", index="0"} 3448500224
+# HELP all_smi_memory_available_bytes Available system memory in bytes
+# TYPE all_smi_memory_available_bytes gauge
+all_smi_memory_available_bytes{instance="shadecloud", hostname="shadecloud", index="0"} 131715817472
+# HELP all_smi_memory_free_bytes Free system memory in bytes
+# TYPE all_smi_memory_free_bytes gauge
+all_smi_memory_free_bytes{instance="shadecloud", hostname="shadecloud", index="0"} 85261213696
+# HELP all_smi_memory_utilization Memory utilization percentage
+# TYPE all_smi_memory_utilization gauge
+all_smi_memory_utilization{instance="shadecloud", hostname="shadecloud", index="0"} 2.5513392016346144
+# HELP all_smi_swap_total_bytes Total swap space in bytes
+# TYPE all_smi_swap_total_bytes gauge
+all_smi_swap_total_bytes{instance="shadecloud", hostname="shadecloud", index="0"} 4294963200
+# HELP all_smi_swap_used_bytes Used swap space in bytes
+# TYPE all_smi_swap_used_bytes gauge
+all_smi_swap_used_bytes{instance="shadecloud", hostname="shadecloud", index="0"} 0
+# HELP all_smi_swap_free_bytes Free swap space in bytes
+# TYPE all_smi_swap_free_bytes gauge
+all_smi_swap_free_bytes{instance="shadecloud", hostname="shadecloud", index="0"} 4294963200
+# HELP all_smi_memory_buffers_bytes Memory used for buffers in bytes
+# TYPE all_smi_memory_buffers_bytes gauge
+all_smi_memory_buffers_bytes{instance="shadecloud", hostname="shadecloud", index="0"} 234565632
+# HELP all_smi_memory_cached_bytes Memory used for cache in bytes
+# TYPE all_smi_memory_cached_bytes gauge
+all_smi_memory_cached_bytes{instance="shadecloud", hostname="shadecloud", index="0"} 45715460096
+# HELP all_smi_disk_total_bytes Total disk space in bytes
+# TYPE all_smi_disk_total_bytes gauge
+all_smi_disk_total_bytes{instance="shadecloud", mount_point="/", index="0"} 1319798095872
+# HELP all_smi_disk_available_bytes Available disk space in bytes
+# TYPE all_smi_disk_available_bytes gauge
+all_smi_disk_available_bytes{instance="shadecloud", mount_point="/", index="0"} 1206980108288
+# HELP all_smi_chassis_info Chassis/node identification information
+# TYPE all_smi_chassis_info gauge
+all_smi_chassis_info{hostname="shadecloud", instance="shadecloud", product_name="Standard PC (Q35 + ICH9, 2009)", vendor="QEMU", version="pc-q35-11.0", bios_version="3.20230228-4", platform="Linux"} 1
+# HELP all_smi_chassis_power_watts Total chassis power consumption in watts
+# TYPE all_smi_chassis_power_watts gauge
+all_smi_chassis_power_watts{hostname="shadecloud", instance="shadecloud"} 45.62
+# HELP all_smi_gpu_gsp_firmware_mode GSP firmware mode (0=disabled, 1=enabled, 2=default); omitted when the driver does not expose the GSP firmware API
+# TYPE all_smi_gpu_gsp_firmware_mode gauge
+all_smi_gpu_gsp_firmware_mode{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 2
+# HELP all_smi_gpu_gsp_firmware_version_info GSP firmware version, encoded as a constant 1 with the version in a `version` label; omitted when unsupported
+# TYPE all_smi_gpu_gsp_firmware_version_info gauge
+all_smi_gpu_gsp_firmware_version_info{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", version="580.126.09"} 1
+# HELP all_smi_gpu_graphics_active_ratio Graphics engine active fraction (0.0-1.0); aligns with nvidia-smi GPU-Util
+# TYPE all_smi_gpu_graphics_active_ratio gauge
+all_smi_gpu_graphics_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_sm_active_ratio SM active fraction (0.0-1.0); DCGM field 1002
+# TYPE all_smi_gpu_sm_active_ratio gauge
+all_smi_gpu_sm_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_sm_occupancy GPM-reported SM occupancy fraction (0.0-1.0); omitted on devices that do not support GPM (pre-Hopper)
+# TYPE all_smi_gpu_sm_occupancy gauge
+all_smi_gpu_sm_occupancy{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_tensor_active_ratio Any tensor pipe active fraction (0.0-1.0); DCGM field 1004
+# TYPE all_smi_gpu_tensor_active_ratio gauge
+all_smi_gpu_tensor_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_tensor_hmma_active_ratio HMMA tensor pipe active fraction (0.0-1.0)
+# TYPE all_smi_gpu_tensor_hmma_active_ratio gauge
+all_smi_gpu_tensor_hmma_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_tensor_imma_active_ratio IMMA tensor pipe active fraction (0.0-1.0)
+# TYPE all_smi_gpu_tensor_imma_active_ratio gauge
+all_smi_gpu_tensor_imma_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_tensor_dfma_active_ratio DFMA tensor pipe active fraction (0.0-1.0)
+# TYPE all_smi_gpu_tensor_dfma_active_ratio gauge
+all_smi_gpu_tensor_dfma_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_fp64_active_ratio FP64 pipe active fraction (0.0-1.0); DCGM field 1006
+# TYPE all_smi_gpu_fp64_active_ratio gauge
+all_smi_gpu_fp64_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_fp32_active_ratio FP32 pipe active fraction (0.0-1.0); DCGM field 1007
+# TYPE all_smi_gpu_fp32_active_ratio gauge
+all_smi_gpu_fp32_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_fp16_active_ratio FP16 pipe active fraction (0.0-1.0); DCGM field 1008
+# TYPE all_smi_gpu_fp16_active_ratio gauge
+all_smi_gpu_fp16_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_integer_active_ratio Integer pipe active fraction (0.0-1.0)
+# TYPE all_smi_gpu_integer_active_ratio gauge
+all_smi_gpu_integer_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_memory_bandwidth_utilization GPM-reported memory bandwidth utilization fraction (0.0-1.0); omitted on devices that do not support GPM (pre-Hopper)
+# TYPE all_smi_gpu_memory_bandwidth_utilization gauge
+all_smi_gpu_memory_bandwidth_utilization{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0.000009112167
+# HELP all_smi_gpu_pcie_tx_bytes_per_second PCIe transmit throughput in bytes/sec; DCGM field 1009
+# TYPE all_smi_gpu_pcie_tx_bytes_per_second gauge
+all_smi_gpu_pcie_tx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 406580.0766974838
+# HELP all_smi_gpu_pcie_rx_bytes_per_second PCIe receive throughput in bytes/sec; DCGM field 1010
+# TYPE all_smi_gpu_pcie_rx_bytes_per_second gauge
+all_smi_gpu_pcie_rx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 272567.6491826707
+# HELP all_smi_gpu_nvlink_tx_bytes_per_second NVLink transmit throughput in bytes/sec (total); DCGM field 1011
+# TYPE all_smi_gpu_nvlink_tx_bytes_per_second gauge
+all_smi_gpu_nvlink_tx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_nvlink_rx_bytes_per_second NVLink receive throughput in bytes/sec (total); DCGM field 1012
+# TYPE all_smi_gpu_nvlink_rx_bytes_per_second gauge
+all_smi_gpu_nvlink_rx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_nvdec_active_ratio Mean NVDEC instance utilization (0.0-1.0)
+# TYPE all_smi_gpu_nvdec_active_ratio gauge
+all_smi_gpu_nvdec_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_nvjpg_active_ratio Mean NVJPG instance utilization (0.0-1.0)
+# TYPE all_smi_gpu_nvjpg_active_ratio gauge
+all_smi_gpu_nvjpg_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_nvofa_active_ratio Mean NVOFA instance utilization (0.0-1.0)
+# TYPE all_smi_gpu_nvofa_active_ratio gauge
+all_smi_gpu_nvofa_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_throttle_reason Active NVML clock-throttle reason (1 when set)
+# TYPE all_smi_gpu_throttle_reason gauge
+all_smi_gpu_throttle_reason{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", reason="gpu_idle"} 1
+# HELP all_smi_gpu_energy_hw_millijoules_total NVML hardware energy counter (millijoules since driver load); distinct from software-integrated all_smi_energy_consumed_joules_total
+# TYPE all_smi_gpu_energy_hw_millijoules_total counter
+all_smi_gpu_energy_hw_millijoules_total{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 212396280
+# HELP all_smi_gpu_remapped_rows HBM remapped row counts by cause
+# TYPE all_smi_gpu_remapped_rows gauge
+all_smi_gpu_remapped_rows{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", cause="correctable"} 0
+all_smi_gpu_remapped_rows{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", cause="uncorrectable"} 0
+# HELP all_smi_gpu_remapping_pending 1 when row remapping is pending a reset
+# TYPE all_smi_gpu_remapping_pending gauge
+all_smi_gpu_remapping_pending{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 0
+# HELP all_smi_gpu_remapping_failed 1 when row remapping failed
+# TYPE all_smi_gpu_remapping_failed gauge
+all_smi_gpu_remapping_failed{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 0
+# HELP all_smi_gpu_utilization_sample_p50 p50 of recent NVML GpuUtilization samples (percent)
+# TYPE all_smi_gpu_utilization_sample_p50 gauge
+all_smi_gpu_utilization_sample_p50{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 0
+# HELP all_smi_gpu_utilization_sample_p95 p95 of recent NVML GpuUtilization samples (percent)
+# TYPE all_smi_gpu_utilization_sample_p95 gauge
+all_smi_gpu_utilization_sample_p95{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 0
+# HELP all_smi_gpu_utilization_sample_max max of recent NVML GpuUtilization samples (percent)
+# TYPE all_smi_gpu_utilization_sample_max gauge
+all_smi_gpu_utilization_sample_max{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0"} 0
+# HELP all_smi_energy_consumed_joules_total Cumulative energy consumption in Joules.
+# TYPE all_smi_energy_consumed_joules_total counter
+all_smi_energy_consumed_joules_total{host="shadecloud", scope="chassis"} 144.136
+all_smi_energy_consumed_joules_total{host="shadecloud", scope="gpu", gpu_index="0", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13"} 144.136

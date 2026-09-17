@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
 use crate::device::GpuReader;
 use crate::device::common::{execute_command_default, parse_csv_line};
 use crate::device::process_list::{get_all_processes, merge_gpu_processes};
@@ -177,6 +178,12 @@ impl GpuReader for NvidiaJetsonGpuReader {
             gsp_firmware_version: None,
             nvlink_remote_devices: Vec::new(),
             gpm_metrics: None,
+            throttle_reasons: None,
+            energy_hw_millijoules: None,
+            remapped_rows: None,
+            nvlink_errors: Vec::new(),
+            utilization_samples: None,
+            xid_event_counts: HashMap::new(),
             detail: static_info.detail.clone(),
         };
 
@@ -256,6 +263,9 @@ fn get_gpu_processes() -> (Vec<ProcessInfo>, HashSet<u32>) {
                     priority: 0,          // Will be filled by sysinfo
                     nice_value: 0,        // Will be filled by sysinfo
                     gpu_utilization: 0.0, // nvidia-smi on Jetson doesn't provide per-process GPU utilization
+                gpu_mem_util: None,
+                enc_util: None,
+                dec_util: None,
                 });
             }
         }
@@ -303,6 +313,9 @@ fn get_gpu_processes() -> (Vec<ProcessInfo>, HashSet<u32>) {
                             priority: 0,          // Will be filled by sysinfo
                             nice_value: 0,        // Will be filled by sysinfo
                             gpu_utilization: 0.0, // Can't determine per-process GPU utilization
+                        gpu_mem_util: None,
+                        enc_util: None,
+                        dec_util: None,
                         });
                         break;
                     }

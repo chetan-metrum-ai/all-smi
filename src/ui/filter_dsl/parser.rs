@@ -63,6 +63,8 @@ pub enum Field {
     PcieRx,
     NvlinkTx,
     NvlinkRx,
+    Throttle,
+    Throttled,
 }
 
 impl Field {
@@ -92,6 +94,8 @@ impl Field {
             "pcie_rx" => Some(Field::PcieRx),
             "nvlink_tx" => Some(Field::NvlinkTx),
             "nvlink_rx" => Some(Field::NvlinkRx),
+            "throttle" => Some(Field::Throttle),
+            "throttled" => Some(Field::Throttled),
             _ => None,
         }
     }
@@ -119,6 +123,7 @@ impl Field {
                 | Field::PcieRx
                 | Field::NvlinkTx
                 | Field::NvlinkRx
+                | Field::Throttled
         )
     }
 
@@ -148,6 +153,8 @@ impl Field {
             Field::PcieRx => "pcie_rx",
             Field::NvlinkTx => "nvlink_tx",
             Field::NvlinkRx => "nvlink_rx",
+            Field::Throttle => "throttle",
+            Field::Throttled => "throttled",
         }
     }
 }

@@ -393,6 +393,12 @@ mod tests {
             gsp_firmware_version: None,
             nvlink_remote_devices: Vec::new(),
             gpm_metrics: None,
+            throttle_reasons: None,
+            energy_hw_millijoules: None,
+            remapped_rows: None,
+            nvlink_errors: Vec::new(),
+            utilization_samples: None,
+            xid_event_counts: HashMap::new(),
             detail: HashMap::from([
                 ("lib_name".to_string(), "CUDA".to_string()),
                 ("lib_version".to_string(), "13.0".to_string()),

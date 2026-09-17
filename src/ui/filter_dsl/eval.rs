@@ -102,6 +102,12 @@ pub trait DeviceRowView {
     fn nvlink_rx_field(&self) -> Option<f64> {
         None
     }
+    fn throttle_matches(&self, _reason: &str) -> Option<bool> {
+        None
+    }
+    fn throttled_field(&self) -> Option<f64> {
+        None
+    }
 
     /// Generic presence check used when the evaluator needs to distinguish
     /// "field absent" from "field value compared false". The default
@@ -131,6 +137,8 @@ pub trait DeviceRowView {
             Field::PcieRx => self.pcie_rx_field().is_none(),
             Field::NvlinkTx => self.nvlink_tx_field().is_none(),
             Field::NvlinkRx => self.nvlink_rx_field().is_none(),
+            Field::Throttle => self.throttled_field().is_none(),
+            Field::Throttled => self.throttled_field().is_none(),
         }
     }
 }
@@ -155,6 +163,19 @@ fn eval_cmp<R: DeviceRowView + ?Sized>(field: Field, op: Op, value: &Value, row:
         return false;
     }
 
+    if field == Field::Throttle {
+        let needle = match value {
+            Value::String(s) => s.as_str(),
+            Value::Number(_) | Value::Regex(_) => return false,
+        };
+        let matched = row.throttle_matches(needle).unwrap_or(false);
+        return match op {
+            Op::Eq => matched,
+            Op::Ne => !matched,
+            _ => false,
+        };
+    }
+
     if field.is_numeric() {
         let row_val = match numeric_value(field, row) {
             Some(v) => v,
@@ -164,9 +185,19 @@ fn eval_cmp<R: DeviceRowView + ?Sized>(field: Field, op: Op, value: &Value, row:
             Value::Number(n) => compare_numeric(row_val, op, *n),
             Value::String(s) => {
                 // Allow `index==0` style where the parser may have emitted
-                // Number, but also tolerate `pstate==P0` style string
-                // comparisons where the user writes a tag rather than a
-                // number.
+                // Number, but also tolerate `pstate==P0` / `throttled==true`
+                // style string comparisons where the user writes a tag rather
+                // than a number.
+                if field == Field::Throttled {
+                    let as_num = match s.to_ascii_lowercase().as_str() {
+                        "true" | "yes" | "1" => Some(1.0),
+                        "false" | "no" | "0" => Some(0.0),
+                        _ => None,
+                    };
+                    if let Some(n) = as_num {
+                        return compare_numeric(row_val, op, n);
+                    }
+                }
                 match op {
                     Op::Eq => row_val.to_string() == *s,
                     Op::Ne => row_val.to_string() != *s,
@@ -228,6 +259,7 @@ fn numeric_value<R: DeviceRowView + ?Sized>(field: Field, row: &R) -> Option<f64
         Field::PcieRx => row.pcie_rx_field(),
         Field::NvlinkTx => row.nvlink_tx_field(),
         Field::NvlinkRx => row.nvlink_rx_field(),
+        Field::Throttled => row.throttled_field(),
         _ => None,
     }
 }
@@ -352,6 +384,14 @@ impl DeviceRowView for GpuInfo {
             .as_ref()
             .and_then(|g| g.nvlink_rx_bytes_per_sec)
     }
+    fn throttle_matches(&self, reason: &str) -> Option<bool> {
+        self.throttle_reasons
+            .map(|r| r.matches_label(reason))
+    }
+    fn throttled_field(&self) -> Option<f64> {
+        self.throttle_reasons
+            .map(|r| if r.is_throttled() { 1.0 } else { 0.0 })
+    }
 }
 
 impl DeviceRowView for ProcessInfo {
@@ -447,6 +487,12 @@ mod tests {
             gsp_firmware_version: None,
             nvlink_remote_devices: Vec::new(),
             gpm_metrics: None,
+            throttle_reasons: None,
+            energy_hw_millijoules: None,
+            remapped_rows: None,
+            nvlink_errors: Vec::new(),
+            utilization_samples: None,
+            xid_event_counts: HashMap::new(),
             detail,
         }
     }
@@ -629,6 +675,9 @@ mod tests {
             priority: 20,
             nice_value: 0,
             gpu_utilization: 99.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         };
         let expr = parse("user==alice").unwrap().unwrap();
         assert!(eval(&expr, &proc));

@@ -119,6 +119,27 @@ pub struct GpuInfo {
     /// architectures must never populate this field.
     #[serde(default)]
     pub gpm_metrics: Option<GpmMetrics>,
+    /// Active clock-throttle reasons from NVML. `None` when unsupported.
+    #[serde(default)]
+    pub throttle_reasons: Option<ThrottleReasons>,
+    /// Hardware energy counter from `nvmlDeviceGetTotalEnergyConsumption`
+    /// in millijoules. Distinct from the software-integrated
+    /// `all_smi_energy_consumed_joules_total`. `None` when unsupported.
+    #[serde(default)]
+    pub energy_hw_millijoules: Option<u64>,
+    /// Row-remapping counters (HBM repair). `None` when unsupported.
+    #[serde(default)]
+    pub remapped_rows: Option<RemappedRowsInfo>,
+    /// Per-link NVLink error counters. Empty when unsupported / no links.
+    #[serde(default)]
+    pub nvlink_errors: Vec<NvLinkErrorCount>,
+    /// Recent GPU utilization samples (timestamp_us, percent), capped at 64.
+    #[serde(default)]
+    pub utilization_samples: Option<Vec<UtilizationSample>>,
+    /// Cumulative XID critical / ECC event counts keyed by XID number
+    /// observed since process start. Empty when the watcher is inactive.
+    #[serde(default)]
+    pub xid_event_counts: HashMap<u32, u64>,
     pub detail: HashMap<String, String>,
 }
 
@@ -274,6 +295,8 @@ pub enum TelemetrySource {
     DcgmiShim,
     /// AMD `gpu_metrics` / GRBM path.
     AmdGpuMetrics,
+    /// Direct NVML (non-GPM) fallback, e.g. PCIe throughput.
+    Nvml,
 }
 
 impl TelemetrySource {
@@ -284,6 +307,7 @@ impl TelemetrySource {
             Self::Dcgm => "dcgm",
             Self::DcgmiShim => "dcgmi",
             Self::AmdGpuMetrics => "amd",
+            Self::Nvml => "nvml",
         }
     }
 
@@ -296,9 +320,133 @@ impl TelemetrySource {
             "dcgm" => Some(Self::Dcgm),
             "dcgmi" => Some(Self::DcgmiShim),
             "amd" => Some(Self::AmdGpuMetrics),
+            "nvml" => Some(Self::Nvml),
             _ => None,
         }
     }
+}
+
+/// NVML clock-throttle reason flags (issue P2).
+///
+/// Serialized as individual boolean fields so JSON/SSE stay readable.
+/// Prometheus exports one gauge per active reason via `as_labels()`.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct ThrottleReasons {
+    pub gpu_idle: bool,
+    pub app_clocks: bool,
+    pub sw_power_cap: bool,
+    pub hw_slowdown: bool,
+    pub sync_boost: bool,
+    pub sw_thermal: bool,
+    pub hw_thermal: bool,
+    pub hw_power_brake: bool,
+    pub display_clocks: bool,
+}
+
+impl ThrottleReasons {
+    /// True when any non-idle limiter is active.
+    pub fn is_throttled(self) -> bool {
+        self.app_clocks
+            || self.sw_power_cap
+            || self.hw_slowdown
+            || self.sync_boost
+            || self.sw_thermal
+            || self.hw_thermal
+            || self.hw_power_brake
+            || self.display_clocks
+    }
+
+    /// Stable labels for active reasons (Prometheus / filter DSL).
+    pub fn active_labels(self) -> Vec<&'static str> {
+        let mut out = Vec::new();
+        if self.gpu_idle {
+            out.push("gpu_idle");
+        }
+        if self.app_clocks {
+            out.push("app_clocks");
+        }
+        if self.sw_power_cap {
+            out.push("sw_power_cap");
+        }
+        if self.hw_slowdown {
+            out.push("hw_slowdown");
+        }
+        if self.sync_boost {
+            out.push("sync_boost");
+        }
+        if self.sw_thermal {
+            out.push("sw_thermal");
+        }
+        if self.hw_thermal {
+            out.push("hw_thermal");
+        }
+        if self.hw_power_brake {
+            out.push("hw_power_brake");
+        }
+        if self.display_clocks {
+            out.push("display_clocks");
+        }
+        out
+    }
+
+    pub fn from_label(value: &str) -> Option<Self> {
+        let mut t = Self::default();
+        match value {
+            "gpu_idle" => t.gpu_idle = true,
+            "app_clocks" => t.app_clocks = true,
+            "sw_power_cap" => t.sw_power_cap = true,
+            "hw_slowdown" => t.hw_slowdown = true,
+            "sync_boost" => t.sync_boost = true,
+            "sw_thermal" => t.sw_thermal = true,
+            "hw_thermal" => t.hw_thermal = true,
+            "hw_power_brake" => t.hw_power_brake = true,
+            "display_clocks" => t.display_clocks = true,
+            _ => return None,
+        }
+        Some(t)
+    }
+
+    pub fn matches_label(self, value: &str) -> bool {
+        match value {
+            "gpu_idle" => self.gpu_idle,
+            "app_clocks" => self.app_clocks,
+            "sw_power_cap" => self.sw_power_cap,
+            "hw_slowdown" => self.hw_slowdown,
+            "sync_boost" => self.sync_boost,
+            "sw_thermal" => self.sw_thermal,
+            "hw_thermal" => self.hw_thermal,
+            "hw_power_brake" => self.hw_power_brake,
+            "display_clocks" => self.display_clocks,
+            _ => false,
+        }
+    }
+}
+
+/// HBM row-remapping status from NVML field values / remapped-rows API.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RemappedRowsInfo {
+    pub correctable: u32,
+    pub uncorrectable: u32,
+    pub pending: bool,
+    pub failed: bool,
+}
+
+/// One NVLink error-counter reading.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct NvLinkErrorCount {
+    pub link_index: u32,
+    /// Counter kind label: `crc_flit`, `crc_data`, `replay`, `recovery`.
+    pub error_type: String,
+    pub count: u64,
+}
+
+/// One utilization sample from `nvmlDeviceGetSamples`.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq)]
+pub struct UtilizationSample {
+    /// CPU timestamp in microseconds.
+    pub timestamp_us: u64,
+    /// Utilization percent (0-100).
+    pub value: f32,
 }
 
 /// Proximity classification for the current GPU temperature relative to the
@@ -471,7 +619,17 @@ pub struct ProcessInfo {
     pub uses_gpu: bool,       // Whether the process uses GPU
     pub priority: i32,        // Process priority (PRI)
     pub nice_value: i32,      // Nice value (NI)
-    pub gpu_utilization: f64, // GPU utilization percentage
+    pub gpu_utilization: f64, // GPU SM utilization percentage (0-100)
+    /// Frame-buffer memory utilization percentage (0-100) from NVML
+    /// process utilization samples. `None` when unknown.
+    #[serde(default)]
+    pub gpu_mem_util: Option<f32>,
+    /// Encoder utilization percentage (0-100). `None` when unknown.
+    #[serde(default)]
+    pub enc_util: Option<f32>,
+    /// Decoder utilization percentage (0-100). `None` when unknown.
+    #[serde(default)]
+    pub dec_util: Option<f32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

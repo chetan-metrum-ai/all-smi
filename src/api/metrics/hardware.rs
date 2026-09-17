@@ -360,6 +360,231 @@ impl<'a> HardwareMetricExporter<'a> {
             |m| m.nvofa_active,
         );
     }
+
+    fn export_throttle_reasons(&self, builder: &mut MetricBuilder, rows: &[Row<'a>]) {
+        let mut emitted = false;
+        for row in rows {
+            let Some(reasons) = row.gpu.throttle_reasons else {
+                continue;
+            };
+            for reason in reasons.active_labels() {
+                if !emitted {
+                    builder
+                        .help(
+                            "all_smi_gpu_throttle_reason",
+                            "Active NVML clock-throttle reason (1 when set)",
+                        )
+                        .type_("all_smi_gpu_throttle_reason", "gauge");
+                    emitted = true;
+                }
+                let base = Self::base_labels(row);
+                let labels = [
+                    base[0],
+                    base[1],
+                    base[2],
+                    base[3],
+                    ("reason", reason),
+                ];
+                builder.metric("all_smi_gpu_throttle_reason", &labels, 1);
+            }
+        }
+    }
+
+    fn export_energy_hw(&self, builder: &mut MetricBuilder, rows: &[Row<'a>]) {
+        let mut emitted = false;
+        for row in rows {
+            let Some(mj) = row.gpu.energy_hw_millijoules else {
+                continue;
+            };
+            if !emitted {
+                builder
+                    .help(
+                        "all_smi_gpu_energy_hw_millijoules_total",
+                        "NVML hardware energy counter (millijoules since driver load); \
+                         distinct from software-integrated all_smi_energy_consumed_joules_total",
+                    )
+                    .type_("all_smi_gpu_energy_hw_millijoules_total", "counter");
+                emitted = true;
+            }
+            let labels = Self::base_labels(row);
+            builder.metric("all_smi_gpu_energy_hw_millijoules_total", &labels, mj);
+        }
+    }
+
+    fn export_remapped_rows(&self, builder: &mut MetricBuilder, rows: &[Row<'a>]) {
+        let mut emitted_rows = false;
+        let mut emitted_pending = false;
+        let mut emitted_failed = false;
+        for row in rows {
+            let Some(remap) = row.gpu.remapped_rows else {
+                continue;
+            };
+            let labels = Self::base_labels(row);
+            if !emitted_rows {
+                builder
+                    .help(
+                        "all_smi_gpu_remapped_rows",
+                        "HBM remapped row counts by cause",
+                    )
+                    .type_("all_smi_gpu_remapped_rows", "gauge");
+                emitted_rows = true;
+            }
+            let corr = [
+                labels[0],
+                labels[1],
+                labels[2],
+                labels[3],
+                ("cause", "correctable"),
+            ];
+            builder.metric("all_smi_gpu_remapped_rows", &corr, remap.correctable);
+            let uncorr = [
+                labels[0],
+                labels[1],
+                labels[2],
+                labels[3],
+                ("cause", "uncorrectable"),
+            ];
+            builder.metric("all_smi_gpu_remapped_rows", &uncorr, remap.uncorrectable);
+
+            if !emitted_pending {
+                builder
+                    .help(
+                        "all_smi_gpu_remapping_pending",
+                        "1 when row remapping is pending a reset",
+                    )
+                    .type_("all_smi_gpu_remapping_pending", "gauge");
+                emitted_pending = true;
+            }
+            builder.metric(
+                "all_smi_gpu_remapping_pending",
+                &labels,
+                if remap.pending { 1 } else { 0 },
+            );
+
+            if !emitted_failed {
+                builder
+                    .help(
+                        "all_smi_gpu_remapping_failed",
+                        "1 when row remapping failed",
+                    )
+                    .type_("all_smi_gpu_remapping_failed", "gauge");
+                emitted_failed = true;
+            }
+            builder.metric(
+                "all_smi_gpu_remapping_failed",
+                &labels,
+                if remap.failed { 1 } else { 0 },
+            );
+        }
+    }
+
+    fn export_nvlink_errors(&self, builder: &mut MetricBuilder, rows: &[Row<'a>]) {
+        let mut emitted = false;
+        for row in rows {
+            for err in &row.gpu.nvlink_errors {
+                if !emitted {
+                    builder
+                        .help(
+                            "all_smi_gpu_nvlink_errors_total",
+                            "NVLink error counters by link and type",
+                        )
+                        .type_("all_smi_gpu_nvlink_errors_total", "counter");
+                    emitted = true;
+                }
+                let link_str = err.link_index.to_string();
+                let base = Self::base_labels(row);
+                let labels = [
+                    base[0],
+                    base[1],
+                    base[2],
+                    base[3],
+                    ("link", link_str.as_str()),
+                    ("type", err.error_type.as_str()),
+                ];
+                builder.metric("all_smi_gpu_nvlink_errors_total", &labels, err.count);
+            }
+        }
+    }
+
+    fn export_utilization_sample_summaries(&self, builder: &mut MetricBuilder, rows: &[Row<'a>]) {
+        use crate::device::readers::nvidia_extras::{sample_max, sample_percentile};
+
+        let mut emitted_p50 = false;
+        let mut emitted_p95 = false;
+        let mut emitted_max = false;
+        for row in rows {
+            let Some(ref samples) = row.gpu.utilization_samples else {
+                continue;
+            };
+            if samples.is_empty() {
+                continue;
+            }
+            let labels = Self::base_labels(row);
+            if let Some(v) = sample_percentile(samples, 50.0) {
+                if !emitted_p50 {
+                    builder
+                        .help(
+                            "all_smi_gpu_utilization_sample_p50",
+                            "p50 of recent NVML GpuUtilization samples (percent)",
+                        )
+                        .type_("all_smi_gpu_utilization_sample_p50", "gauge");
+                    emitted_p50 = true;
+                }
+                builder.metric("all_smi_gpu_utilization_sample_p50", &labels, v);
+            }
+            if let Some(v) = sample_percentile(samples, 95.0) {
+                if !emitted_p95 {
+                    builder
+                        .help(
+                            "all_smi_gpu_utilization_sample_p95",
+                            "p95 of recent NVML GpuUtilization samples (percent)",
+                        )
+                        .type_("all_smi_gpu_utilization_sample_p95", "gauge");
+                    emitted_p95 = true;
+                }
+                builder.metric("all_smi_gpu_utilization_sample_p95", &labels, v);
+            }
+            if let Some(v) = sample_max(samples) {
+                if !emitted_max {
+                    builder
+                        .help(
+                            "all_smi_gpu_utilization_sample_max",
+                            "max of recent NVML GpuUtilization samples (percent)",
+                        )
+                        .type_("all_smi_gpu_utilization_sample_max", "gauge");
+                    emitted_max = true;
+                }
+                builder.metric("all_smi_gpu_utilization_sample_max", &labels, v);
+            }
+        }
+    }
+
+    fn export_xid_events(&self, builder: &mut MetricBuilder, rows: &[Row<'a>]) {
+        let mut emitted = false;
+        for row in rows {
+            for (xid, count) in &row.gpu.xid_event_counts {
+                if !emitted {
+                    builder
+                        .help(
+                            "all_smi_gpu_xid_events_total",
+                            "Cumulative XID / ECC events observed since process start",
+                        )
+                        .type_("all_smi_gpu_xid_events_total", "counter");
+                    emitted = true;
+                }
+                let xid_str = xid.to_string();
+                let base = Self::base_labels(row);
+                let labels = [
+                    base[0],
+                    base[1],
+                    base[2],
+                    base[3],
+                    ("xid", xid_str.as_str()),
+                ];
+                builder.metric("all_smi_gpu_xid_events_total", &labels, *count);
+            }
+        }
+    }
 }
 
 fn gpm_source_label(metrics: &GpmMetrics) -> &'static str {
@@ -446,6 +671,12 @@ fn has_any_hw_detail(gpu: &GpuInfo) -> bool {
         || gpu.gsp_firmware_version.is_some()
         || !gpu.nvlink_remote_devices.is_empty()
         || gpu.gpm_metrics.is_some()
+        || gpu.throttle_reasons.is_some()
+        || gpu.energy_hw_millijoules.is_some()
+        || gpu.remapped_rows.is_some()
+        || !gpu.nvlink_errors.is_empty()
+        || gpu.utilization_samples.as_ref().is_some_and(|s| !s.is_empty())
+        || !gpu.xid_event_counts.is_empty()
 }
 
 /// Borrowed view of a single GPU row with its stringified index cached.
@@ -469,6 +700,12 @@ impl<'a> MetricExporter for HardwareMetricExporter<'a> {
         self.export_gsp_firmware_version(&mut builder, &rows);
         self.export_nvlink_remote_device_type(&mut builder, &rows);
         self.export_gpm_metrics(&mut builder, &rows);
+        self.export_throttle_reasons(&mut builder, &rows);
+        self.export_energy_hw(&mut builder, &rows);
+        self.export_remapped_rows(&mut builder, &rows);
+        self.export_nvlink_errors(&mut builder, &rows);
+        self.export_utilization_sample_summaries(&mut builder, &rows);
+        self.export_xid_events(&mut builder, &rows);
         builder.build()
     }
 }
@@ -525,6 +762,12 @@ mod tests {
                 source: Some(TelemetrySource::Gpm),
                 ..Default::default()
             }),
+            throttle_reasons: None,
+            energy_hw_millijoules: None,
+            remapped_rows: None,
+            nvlink_errors: Vec::new(),
+            utilization_samples: None,
+            xid_event_counts: HashMap::new(),
             detail: HashMap::new(),
         }
     }

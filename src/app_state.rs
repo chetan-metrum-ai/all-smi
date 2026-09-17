@@ -1054,6 +1054,9 @@ mod tests {
             ppid: 1,
             threads: 1,
             uses_gpu: used_memory > 0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         }
     }
 

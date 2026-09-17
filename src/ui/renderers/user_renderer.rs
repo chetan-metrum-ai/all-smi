@@ -129,7 +129,7 @@ pub fn render_users_tab<W: Write>(
     // ------------------------------------------------------------------
     // Header
     // ------------------------------------------------------------------
-    render_table_header(stdout, tab_state.sort, cols as usize);
+    render_table_header(stdout, tab_state.sort, cols as usize, aggregation);
 
     // ------------------------------------------------------------------
     // Body
@@ -279,13 +279,22 @@ fn render_empty_message<W: Write>(
 // Header
 // ---------------------------------------------------------------------
 
-fn render_table_header<W: Write>(stdout: &mut W, sort: UserSortKey, cols: usize) {
-    let header = format_user_header(sort, cols);
+fn render_table_header<W: Write>(
+    stdout: &mut W,
+    sort: UserSortKey,
+    cols: usize,
+    aggregation: &UserAggregationResult,
+) {
+    let header = format_user_header(sort, cols, aggregation);
     print_colored_text(stdout, &header, Color::Black, Some(Color::White), None);
     queue!(stdout, Print("\r\n")).unwrap();
 }
 
-fn format_user_header(sort: UserSortKey, cols: usize) -> String {
+fn format_user_header(
+    sort: UserSortKey,
+    cols: usize,
+    aggregation: &UserAggregationResult,
+) -> String {
     let command_width = command_column_width(cols);
     let mk = |label: &str, key: UserSortKey| {
         if key == sort {
@@ -299,7 +308,12 @@ fn format_user_header(sort: UserSortKey, cols: usize) -> String {
     let gpus = " GPUs";
     let procs = " PROCS";
     let vram = mk("VRAM", UserSortKey::Memory);
-    let power = mk("POWER*", UserSortKey::Power);
+    let power_label = if aggregation.users.iter().any(|u| u.power_weighting == "sm") {
+        "POWER*sm"
+    } else {
+        "POWER*"
+    };
+    let power = mk(power_label, UserSortKey::Power);
     let longest = mk("LONGEST", UserSortKey::Longest);
     let cmd = "CMD (top-1 by GPU mem)";
     let user_w = COL_USER;

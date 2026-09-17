@@ -64,6 +64,9 @@ fn make_process(
         priority: 20,
         nice_value: 0,
         gpu_utilization: 0.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
     }
 }
 
@@ -179,7 +182,8 @@ fn sorting_users_is_stable_across_keys() {
                 gpu_memory_bytes: 1000,
                 cpu_pct_tenths: 0,
                 start_time_seconds: 0,
-            },
+                        sm_util_pct: None,
+        },
             all_smi::network::metrics_parser::ParsedProcessRow {
                 host: "a".into(),
                 pid: 2,
@@ -191,7 +195,8 @@ fn sorting_users_is_stable_across_keys() {
                 gpu_memory_bytes: 1000,
                 cpu_pct_tenths: 0,
                 start_time_seconds: 0,
-            },
+                        sm_util_pct: None,
+        },
         ],
         is_connected: true,
     }]);

@@ -1795,6 +1795,7 @@ mod tests {
             gpu_memory_bytes: 1000,
             cpu_pct_tenths: 0,
             start_time_seconds: 10,
+                    sm_util_pct: None,
         }];
         // Simulate a collector push so the aggregation cache picks up
         // the new process data; UI-only `mark_data_changed` would leave
@@ -1883,6 +1884,7 @@ mod tests {
                 gpu_memory_bytes: vram,
                 cpu_pct_tenths: 0,
                 start_time_seconds: 60,
+            sm_util_pct: None,
             });
         }
         state.mark_collector_data_changed();
@@ -1975,7 +1977,8 @@ mod tests {
                 gpu_memory_bytes: 1024,
                 cpu_pct_tenths: 0,
                 start_time_seconds: 10,
-            });
+                        sm_util_pct: None,
+        });
         }
         state.mark_collector_data_changed();
         // Warm the cache.
@@ -2052,6 +2055,12 @@ mod tests {
                 gsp_firmware_version: None,
                 nvlink_remote_devices: Vec::new(),
                 gpm_metrics: None,
+                throttle_reasons: None,
+                energy_hw_millijoules: None,
+                remapped_rows: None,
+                nvlink_errors: Vec::new(),
+                utilization_samples: None,
+                xid_event_counts: std::collections::HashMap::new(),
                 // Empty detail map -- replicates the local-mode replay
                 // path that F5 identifies as broken.
                 detail: std::collections::HashMap::new(),
@@ -2071,6 +2080,7 @@ mod tests {
                 gpu_memory_bytes: 1_000_000_000,
                 cpu_pct_tenths: 0,
                 start_time_seconds: 10,
+            sm_util_pct: None,
             });
         }
         state.mark_collector_data_changed();
@@ -2107,7 +2117,8 @@ mod tests {
                     gpu_memory_bytes: 1000,
                     cpu_pct_tenths: 0,
                     start_time_seconds: 10,
-                });
+                            sm_util_pct: None,
+        });
         }
         // Simulate a collector push so the aggregation cache picks up
         // the new process data.
