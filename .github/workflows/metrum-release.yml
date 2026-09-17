@@ -1,0 +1,192 @@
+# Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
+#
+# Metrum fork release builder. GitHub-hosted runners only — no self-hosted
+# Windows/Intel-Mac, no Apple notarization, no Homebrew/PPA/Teams.
+# Do not publish a public tag until after P4 (real GPM + DCGM plugin).
+# Tags use a metrum suffix (e.g. v0.26.3-metrum.1) so they never collide
+# with lablup/all-smi release tags.
+name: Metrum Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag to build from AND upload artifacts to (e.g. v0.26.3-metrum.1). Empty = build the dispatched ref."
+        required: false
+      targets:
+        description: "Platform families (comma-separated: linux, macos, or all). Empty = all."
+        required: false
+        default: "all"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  setup:
+    name: Resolve build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      includes: ${{ steps.resolve.outputs.includes }}
+    steps:
+      - name: Resolve target platforms
+        id: resolve
+        env:
+          TARGETS: ${{ github.event_name == 'release' && 'all' || github.event.inputs.targets }}
+        run: |
+          set -euo pipefail
+          ALL='[
+            {"os_family":"linux", "target":"x86_64-unknown-linux-gnu",  "os":"ubuntu-22.04",      "artifact_name":"all-smi", "asset_name":"all-smi-linux-x86_64",      "archive_ext":".tar.gz", "protoc_platform":"linux-x86_64"},
+            {"os_family":"linux", "target":"x86_64-unknown-linux-musl", "os":"ubuntu-latest",      "artifact_name":"all-smi", "asset_name":"all-smi-linux-x86_64-musl", "archive_ext":".tar.gz", "protoc_platform":"linux-x86_64"},
+            {"os_family":"linux", "target":"aarch64-unknown-linux-gnu", "os":"ubuntu-22.04-arm",   "artifact_name":"all-smi", "asset_name":"all-smi-linux-aarch64",     "archive_ext":".tar.gz", "protoc_platform":"linux-aarch_64"},
+            {"os_family":"macos", "target":"aarch64-apple-darwin",      "os":"macos-14",           "artifact_name":"all-smi", "asset_name":"all-smi-macos-aarch64",     "archive_ext":".zip",    "protoc_platform":"osx-aarch_64"}
+          ]'
+          sel="$(printf '%s' "${TARGETS:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+          if [ -z "$sel" ]; then sel="all"; fi
+          fams=""
+          IFS=','
+          for tok in $sel; do
+            case "$tok" in
+              all) fams="linux macos" ;;
+              linux|macos) fams="$fams $tok" ;;
+              "") ;;
+              *) echo "::error::Unknown build target '$tok'. Allowed: linux, macos, all."; exit 1 ;;
+            esac
+          done
+          unset IFS
+          fam_json="$(printf '%s\n' $fams | awk 'NF' | sort -u | jq -R . | jq -cs .)"
+          includes="$(printf '%s' "$ALL" | jq -c --argjson fams "$fam_json" \
+            '[ .[] | select(.os_family as $f | $fams | index($f)) ]')"
+          if [ "$(printf '%s' "$includes" | jq 'length')" -eq 0 ]; then
+            echo "::error::No build targets selected."; exit 1
+          fi
+          echo "Building families: $fam_json"
+          printf '%s' "$includes" | jq -r '.[] | "  - " + .target'
+          echo "includes=$includes" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: setup
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.includes) }}
+    env:
+      PROTOC_VERSION: "31.1"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name || github.event.inputs.release_tag || github.sha }}
+
+      - name: Checkout workflow actions
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          sparse-checkout: .github/actions
+          sparse-checkout-cone-mode: false
+          path: .workflow-actions
+
+      - name: Cache cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: metrum-${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            metrum-${{ runner.os }}-cargo-${{ matrix.target }}-
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Add target architecture
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install musl tools (Linux musl only)
+        if: contains(matrix.target, 'musl')
+        run: |
+          sudo apt update
+          sudo apt install -y musl-tools
+
+      - name: Install AMD GPU dependencies (Linux only)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y libdrm-dev libdrm-amdgpu1
+
+      - name: Setup protoc
+        uses: ./.workflow-actions/.github/actions/setup-protoc
+        with:
+          version: ${{ env.PROTOC_VERSION }}
+          platform: ${{ matrix.protoc_platform }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }} --locked -p all-smi
+
+      - name: Build AMD runtime plugin (Linux glibc only)
+        if: runner.os == 'Linux' && !contains(matrix.target, 'musl')
+        run: |
+          set -euo pipefail
+          echo "AMD_PLUGIN_BUILT=false" >> "$GITHUB_ENV"
+          if [ ! -f crates/all-smi-amd-plugin/Cargo.toml ]; then
+            exit 0
+          fi
+          cargo build --release --target ${{ matrix.target }} --locked -p all-smi-amd-plugin
+          test -f "target/${{ matrix.target }}/release/liball_smi_amd.so"
+          echo "AMD_PLUGIN_BUILT=true" >> "$GITHUB_ENV"
+
+      - name: Package Linux binary (tar.gz)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          BIN_DIR=target/${{ matrix.target }}/release
+          mkdir -p package
+          cp "$BIN_DIR/${{ matrix.artifact_name }}" package/
+          if [ "${AMD_PLUGIN_BUILT:-false}" = true ]; then
+            cp "$BIN_DIR/liball_smi_amd.so" package/
+          fi
+          # DCGM plugin lands in P4; include when present.
+          if [ -f "$BIN_DIR/liball_smi_dcgm.so" ]; then
+            cp "$BIN_DIR/liball_smi_dcgm.so" package/
+          fi
+          if [ -f docs/man/all-smi.1 ]; then
+            cp docs/man/all-smi.1 package/
+          fi
+          tar -C package -czf ${{ matrix.asset_name }}.tar.gz .
+
+      - name: Package macOS binary (zip, unsigned)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          BIN="target/${{ matrix.target }}/release/${{ matrix.artifact_name }}"
+          mkdir -p package
+          cp "$BIN" package/
+          chmod +x "package/${{ matrix.artifact_name }}"
+          if [ -f docs/man/all-smi.1 ]; then
+            cp docs/man/all-smi.1 package/
+          fi
+          ditto -c -k --sequesterRsrc package ${{ matrix.asset_name }}.zip
+
+      - name: Generate checksum
+        run: |
+          set -euo pipefail
+          FILE="${{ matrix.asset_name }}${{ matrix.archive_ext }}"
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sha256sum "$FILE" > "$FILE.sha256"
+          else
+            shasum -a 256 "$FILE" > "$FILE.sha256"
+          fi
+
+      - name: Upload release artifacts
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          files: |
+            ${{ matrix.asset_name }}${{ matrix.archive_ext }}
+            ${{ matrix.asset_name }}${{ matrix.archive_ext }}.sha256
