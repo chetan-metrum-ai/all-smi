@@ -1,0 +1,10 @@
+all-smi doctor — 0.26.3
+Running 4 checks…
+
+PASS nvidia.dcgm.hostengine           host engine reachable: 1 GPU found (Active).
+PASS nvidia.dcgm.library              dcgmi at /usr/bin/dcgmi; libdcgm present
+PASS nvidia.dcgm.prof_module          dcgmi dmon -e 1002 succeeded (profiling module usable)
+PASS nvidia.gpm.supported             GPM supported on at least one of 1 device(s) (Hopper+)
+
+Summary: 4 pass, 0 warn, 0 fail, 0 skipped
+Exit code: 0
