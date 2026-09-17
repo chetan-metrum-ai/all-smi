@@ -160,3 +160,14 @@ Complete (merged via PR #4).
 ## Release v0.26.3-metrum.2
 
 Tagged on fork `main` after P3+P4. Shadeform H100 left running until explicitly deleted.
+
+### Release smoke (Shadeform H100)
+
+Published `all-smi-linux-x86_64.tar.gz` unpacked on the live box (`~/all-smi-release-metrum.2/`):
+
+- sha256 OK; tree includes `all-smi`, `liball_smi_dcgm.so`, `liball_smi_amd.so`
+- `doctor --only nvidia.gpm,nvidia.dcgm`: 4 PASS
+- Default API scrape: `sm_active` / hollow with `source="gpm"`
+- `ALL_SMI_NVIDIA_DISABLE_GPM=1` + `ALL_SMI_DCGM_PLUGIN=…/liball_smi_dcgm.so`: PROF gauges with `source="dcgm"`
+
+Artifacts: `TECHNICAL_REPORTS/runs/metrum.2-release-smoke/`

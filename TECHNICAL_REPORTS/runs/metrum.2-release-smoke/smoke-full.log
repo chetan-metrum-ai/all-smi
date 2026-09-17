@@ -1,0 +1,61 @@
+=== VERSION ===
+all-smi 0.26.3
+=== DOCTOR ===
+all-smi doctor — 0.26.3
+Running 4 checks…
+
+PASS nvidia.dcgm.hostengine           host engine reachable: 1 GPU found (Active).
+PASS nvidia.dcgm.library              dcgmi at /usr/bin/dcgmi; libdcgm present
+PASS nvidia.dcgm.prof_module          dcgmi dmon -e 1002 succeeded (profiling module usable)
+PASS nvidia.gpm.supported             GPM supported on at least one of 1 device(s) (Hopper+)
+
+Summary: 4 pass, 0 warn, 0 fail, 0 skipped
+Exit code: 0
+=== GPM API (port 19110) ===
+# HELP all_smi_gpu_graphics_active_ratio Graphics engine active fraction (0.0-1.0); aligns with nvidia-smi GPU-Util
+# TYPE all_smi_gpu_graphics_active_ratio gauge
+all_smi_gpu_graphics_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_sm_active_ratio SM active fraction (0.0-1.0); DCGM field 1002
+# TYPE all_smi_gpu_sm_active_ratio gauge
+all_smi_gpu_sm_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+# HELP all_smi_gpu_hollow_utilization_ratio Hollow utilization: graphics_active - sm_active (clamped ≥ 0); omitted when either input is unavailable
+# TYPE all_smi_gpu_hollow_utilization_ratio gauge
+all_smi_gpu_hollow_utilization_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="gpm"} 0
+=== DCGM PLUGIN API (port 19111, GPM disabled) ===
+# HELP all_smi_gpu_graphics_active_ratio Graphics engine active fraction (0.0-1.0); aligns with nvidia-smi GPU-Util
+# TYPE all_smi_gpu_graphics_active_ratio gauge
+all_smi_gpu_graphics_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+# HELP all_smi_gpu_sm_active_ratio SM active fraction (0.0-1.0); DCGM field 1002
+# TYPE all_smi_gpu_sm_active_ratio gauge
+all_smi_gpu_sm_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_sm_occupancy{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_tensor_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_fp64_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_fp32_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_fp16_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_memory_bandwidth_utilization{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0.000008995987
+all_smi_gpu_pcie_tx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 1585152
+all_smi_gpu_pcie_rx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 579584
+all_smi_gpu_nvlink_tx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_nvlink_rx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_hollow_utilization_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+sm_active None graphics None source nvml
+detail {}
+=== ASSERTIONS ===
+PASS: GPM source=gpm
+PASS: DCGM path emitted sm_active
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_graphics_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_sm_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_sm_occupancy{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_tensor_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_fp64_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_fp32_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_fp16_active_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_memory_bandwidth_utilization{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0.000008995987
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_pcie_tx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 1585152
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_pcie_rx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 579584
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_nvlink_tx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_nvlink_rx_bytes_per_second{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+/tmp/metrum2-dcgm-metrics.txt:all_smi_gpu_hollow_utilization_ratio{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-3c0a0b25-bc08-0fa2-4296-3826d8aacb13", gpu_index="0", source="dcgm"} 0
+PASS: DCGM attribution
+SMOKE_DONE

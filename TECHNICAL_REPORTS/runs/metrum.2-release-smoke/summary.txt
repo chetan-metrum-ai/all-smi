@@ -1,0 +1,7 @@
+v0.26.3-metrum.2 release smoke on Shadeform H100 (216.81.245.245)
+- sha256 of all-smi-linux-x86_64.tar.gz: OK
+- Contents: all-smi, liball_smi_dcgm.so, liball_smi_amd.so
+- doctor nvidia.gpm + nvidia.dcgm: 4 PASS
+- GPM API scrape: sm_active/graphics/hollow with source="gpm"
+- DCGM plugin (ALL_SMI_NVIDIA_DISABLE_GPM=1 + ALL_SMI_DCGM_PLUGIN): sm_active with source="dcgm"
+- Instance left running
