@@ -71,7 +71,7 @@ Policy: SKIP when no NVIDIA GPU; DCGM absence is WARN (never FAIL). Filter with 
 
 ### Status
 
-Complete on Shadeform H100 (pending PR merge).
+Complete on Shadeform H100 (merged via PR #1).
 
 ### Changes
 
@@ -95,4 +95,26 @@ Complete on Shadeform H100 (pending PR merge).
 - [x] `gpm_parity` ±0.05 vs DCGM (hollow)
 - [x] `telemetry_surface_completeness` green
 - [x] first poll `None`, later polls populated on H100
-- [ ] PR opened against fork `main`
+- [x] PR #1 merged into fork `main`
+
+## P2 — NVML extras
+
+### Status
+
+Complete on Shadeform H100 (this PR).
+
+### Changes
+
+- `nvidia_extras.rs`: throttle reasons, PCIe fallback (`source=nvml`), energy HW counter, remapped rows, NVLink errors, utilization sample summaries, process util
+- `nvidia_xid.rs`: best-effort XID/ECC watcher thread → `xid_event_counts`
+- Surfaces: Prometheus exporter, metrics parser, filter DSL (`throttle`/`throttled`), TUI throttle tags, Users-tab SM-share power weighting (`POWER*sm`), `API.md`, completeness test
+
+### Acceptance
+
+- [x] Unit tests (`nvidia_extras`) + `telemetry_surface_completeness`
+- [x] Live H100 scrape exposes energy/GPM/PCIe/remapped/util samples; `throttle_reason{gpu_idle}` (power-cap change requires root; not available on Shadeform user)
+- [ ] PR merged
+
+### Run dir
+
+- `TECHNICAL_REPORTS/runs/p2-live/`

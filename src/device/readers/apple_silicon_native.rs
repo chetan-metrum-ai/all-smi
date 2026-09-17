@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::collections::HashMap;
+
 //! Native Apple Silicon GPU reader using macOS native APIs
 //!
 //! This reader uses IOReport, SMC, and other native macOS APIs to collect
@@ -316,6 +318,12 @@ fn build_gpu_info(
         gsp_firmware_version: None,
         nvlink_remote_devices: Vec::new(),
         gpm_metrics: None,
+        throttle_reasons: None,
+        energy_hw_millijoules: None,
+        remapped_rows: None,
+        nvlink_errors: Vec::new(),
+        utilization_samples: None,
+        xid_event_counts: HashMap::new(),
         detail,
     }
 }

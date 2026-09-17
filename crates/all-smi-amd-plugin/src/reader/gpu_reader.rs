@@ -229,6 +229,12 @@ impl GpuReader for AmdGpuReader {
                 gsp_firmware_version: None,
                 nvlink_remote_devices: Vec::new(),
                 gpm_metrics: None,
+                throttle_reasons: None,
+                energy_hw_millijoules: None,
+                remapped_rows: None,
+                nvlink_errors: Vec::new(),
+                utilization_samples: None,
+                xid_event_counts: HashMap::new(),
                 detail,
             };
             gpu_info.push(info);
@@ -342,6 +348,9 @@ impl GpuReader for AmdGpuReader {
                 priority: sys_proc.map(|p| p.priority).unwrap_or(0),
                 nice_value: sys_proc.map(|p| p.nice_value).unwrap_or(0),
                 gpu_utilization: 0.0, // fdinfo doesn't directly provide this per-process
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
             };
 
             process_info_list.push(process_info);

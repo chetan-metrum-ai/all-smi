@@ -449,6 +449,9 @@ mod tests {
             priority: 0,
             nice_value: 0,
             gpu_utilization: 0.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         };
         let mut snap = sample_snapshot();
         snap.processes = Some(vec![proc]);
@@ -503,6 +506,9 @@ mod tests {
             priority: 0,
             nice_value: 0,
             gpu_utilization: 0.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         };
         let mut snap = sample_snapshot();
         snap.processes = Some(vec![proc]);
@@ -544,6 +550,9 @@ mod tests {
             priority: 0,
             nice_value: 0,
             gpu_utilization: 0.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         };
         let mut snap = sample_snapshot();
         snap.processes = Some(vec![proc]);
@@ -581,6 +590,9 @@ mod tests {
             priority: 0,
             nice_value: 0,
             gpu_utilization: 0.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         };
         let mut snap = sample_snapshot();
         snap.processes = Some(vec![proc]);

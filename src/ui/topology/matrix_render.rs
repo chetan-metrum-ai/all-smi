@@ -130,6 +130,12 @@ fn pseudo_info(gpu: &super::TopologyGpu) -> crate::device::GpuInfo {
         gsp_firmware_version: None,
         nvlink_remote_devices: gpu.links.clone(),
         gpm_metrics: None,
+        throttle_reasons: None,
+        energy_hw_millijoules: None,
+        remapped_rows: None,
+        nvlink_errors: Vec::new(),
+        utilization_samples: None,
+        xid_event_counts: HashMap::new(),
         detail: HashMap::new(),
     }
 }
@@ -249,6 +255,12 @@ mod tests {
                 })
                 .collect(),
             gpm_metrics: None,
+            throttle_reasons: None,
+            energy_hw_millijoules: None,
+            remapped_rows: None,
+            nvlink_errors: Vec::new(),
+            utilization_samples: None,
+            xid_event_counts: HashMap::new(),
             detail,
         }
     }

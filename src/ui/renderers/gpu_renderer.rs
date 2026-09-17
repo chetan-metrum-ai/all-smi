@@ -331,6 +331,24 @@ pub fn print_gpu_info<W: Write>(
         Some(mhz) => print_colored_text(stdout, &format!("{mhz}MHz"), Color::White, None, None),
     }
 
+    if let Some(reasons) = info.throttle_reasons {
+        let tag = if reasons.sw_power_cap {
+            Some(("⚡cap", Color::Yellow))
+        } else if reasons.hw_thermal || reasons.sw_thermal {
+            Some(("🌡hw", Color::Red))
+        } else if reasons.hw_slowdown || reasons.hw_power_brake {
+            Some(("⬇hw", Color::Red))
+        } else if reasons.is_throttled() {
+            Some(("throttle", Color::Yellow))
+        } else {
+            None
+        };
+        if let Some((label, color)) = tag {
+            print_colored_text(stdout, " ", Color::White, None, None);
+            print_colored_text(stdout, label, color, None, None);
+        }
+    }
+
     print_colored_text(stdout, " Pwr:", Color::Red, None, None);
 
     // Check if power_limit_max is available and display as current/max
@@ -860,6 +878,12 @@ mod tests {
             gsp_firmware_version: None,
             nvlink_remote_devices: Vec::new(),
             gpm_metrics: None,
+            throttle_reasons: None,
+            energy_hw_millijoules: None,
+            remapped_rows: None,
+            nvlink_errors: Vec::new(),
+            utilization_samples: None,
+            xid_event_counts: HashMap::new(),
             detail: HashMap::new(),
         }
     }

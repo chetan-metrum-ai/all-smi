@@ -108,6 +108,9 @@ pub struct UserAggregate {
     /// Weighted power approximation in watts.  Always >= 0; see
     /// [`aggregate_users`] for the formula.
     pub power_watts: f64,
+    /// Which share was used for [`Self::power_watts`]: `"sm"` when any
+    /// process on a touched GPU reported SM util, otherwise `"vram"`.
+    pub power_weighting: &'static str,
     /// Largest `start_time_seconds` the user has in the cluster.  0 on
     /// fleets where none of the user's processes reported a start time.
     pub longest_seconds: u64,
@@ -169,6 +172,17 @@ pub fn is_system_user(user: &str) -> bool {
 ///
 /// The **power approximation** works as follows:
 ///
+/// When any process on a GPU reports SM util (`sm_util_pct`), that GPU
+/// uses SM-share weighting:
+///
+/// ```text
+///                        user_sm_on_gpu
+///   power += gpu_power × ────────────────
+///                        total_sm_on_gpu
+/// ```
+///
+/// Otherwise it falls back to VRAM-share weighting:
+///
 /// ```text
 ///                        user_vram_on_gpu
 ///   power += gpu_power × ───────────────────
@@ -176,11 +190,9 @@ pub fn is_system_user(user: &str) -> bool {
 /// ```
 ///
 /// For every GPU the user touches we multiply the GPU's reported power
-/// by the user's share of the VRAM in use on that GPU, then sum across
-/// GPUs.  Negative values are clamped to zero (guards against malformed
-/// scrapes where process VRAM sums exceed the GPU total due to race
-/// conditions between NVML and the Linux accounting paths).  The UI
-/// marks this column with `*` to make the approximation explicit.
+/// by the user's share, then sum across GPUs.  Negative values are
+/// clamped to zero.  The UI marks this column with `*` and
+/// [`UserAggregate::power_weighting`] records which formula was used.
 pub fn aggregate_users(snapshots: &[HostSnapshot]) -> UserAggregationResult {
     // --- Pass 1: total VRAM per (host, gpu_index) -----------------
     //
@@ -197,6 +209,9 @@ pub fn aggregate_users(snapshots: &[HostSnapshot]) -> UserAggregationResult {
 
     let mut total_vram_by_gpu: HashMap<(String, u32), u64> =
         HashMap::with_capacity(gpu_capacity_hint);
+    let mut total_sm_by_gpu: HashMap<(String, u32), u64> =
+        HashMap::with_capacity(gpu_capacity_hint);
+    let mut gpu_has_sm: HashSet<(String, u32)> = HashSet::new();
     for snap in snapshots {
         for p in &snap.processes {
             // Single-lookup accumulation: one `entry(...)` call,
@@ -205,10 +220,14 @@ pub fn aggregate_users(snapshots: &[HostSnapshot]) -> UserAggregationResult {
             // two lookups and two `host.clone()` calls per row; for
             // 100 hosts × 50 procs that was ~5 000 extra clones per
             // scrape tick on the single-threaded UI path.
-            let entry = total_vram_by_gpu
-                .entry((snap.host.clone(), p.gpu_index))
-                .or_insert(0);
+            let key = (snap.host.clone(), p.gpu_index);
+            let entry = total_vram_by_gpu.entry(key.clone()).or_insert(0);
             *entry = entry.saturating_add(p.gpu_memory_bytes);
+            if let Some(sm) = p.sm_util_pct {
+                gpu_has_sm.insert(key.clone());
+                let sm_entry = total_sm_by_gpu.entry(key).or_insert(0);
+                *sm_entry = sm_entry.saturating_add(sm as u64);
+            }
         }
     }
 
@@ -250,7 +269,9 @@ pub fn aggregate_users(snapshots: &[HostSnapshot]) -> UserAggregationResult {
     // --- Pass 4: finalise -----------------------------------------
     let mut users: Vec<UserAggregate> = user_scratch
         .into_iter()
-        .map(|(user, scratch)| scratch.finalize(user, &total_vram_by_gpu, &power_by_gpu))
+        .map(|(user, scratch)| {
+            scratch.finalize(user, &total_vram_by_gpu, &total_sm_by_gpu, &gpu_has_sm, &power_by_gpu)
+        })
         .collect();
 
     // Stable default ordering: alphabetical by username so the UI has a
@@ -291,6 +312,8 @@ struct UserScratch {
     /// Weighted-power numerators keyed by `(host, gpu_index)`.  The
     /// final pass divides each by the matching denominator.
     vram_by_gpu: HashMap<(String, u32), u64>,
+    /// SM-util numerators (percent points) keyed like `vram_by_gpu`.
+    sm_by_gpu: HashMap<(String, u32), u64>,
     /// Maximum start_time_seconds seen across rows.
     longest_seconds: u64,
     /// Owner of the single row with the largest gpu_memory_bytes
@@ -322,6 +345,13 @@ impl UserScratch {
                 .or_insert(0);
             *entry = entry.saturating_add(row.gpu_memory_bytes);
         }
+        if let Some(sm) = row.sm_util_pct {
+            let entry = self
+                .sm_by_gpu
+                .entry((host.to_string(), row.gpu_index))
+                .or_insert(0);
+            *entry = entry.saturating_add(sm as u64);
+        }
 
         if row.start_time_seconds > self.longest_seconds {
             self.longest_seconds = row.start_time_seconds;
@@ -345,33 +375,44 @@ impl UserScratch {
         self,
         user: String,
         total_vram_by_gpu: &HashMap<(String, u32), u64>,
+        total_sm_by_gpu: &HashMap<(String, u32), u64>,
+        gpu_has_sm: &HashSet<(String, u32)>,
         power_by_gpu: &HashMap<(String, u32), f64>,
     ) -> UserAggregate {
-        // Weighted power: for each (host, gpu) the user touches,
-        //   gpu_power × (user_vram / total_vram_on_that_gpu)
-        // Summed over GPUs, clamped to non-negative.
+        // Prefer SM-share weighting when any process on that GPU reported SM.
         let mut power_watts = 0.0_f64;
-        for ((host, gpu_index), user_vram) in &self.vram_by_gpu {
-            let total = total_vram_by_gpu
-                .get(&(host.clone(), *gpu_index))
-                .copied()
-                .unwrap_or(0);
-            if total == 0 {
-                continue;
-            }
-            let gpu_power = power_by_gpu
-                .get(&(host.clone(), *gpu_index))
-                .copied()
-                .unwrap_or(0.0);
-            let ratio = (*user_vram as f64) / (total as f64);
-            // Even with non-negative inputs, f64 noise (denormals,
-            // subtraction in the caller) could in principle push the
-            // product below zero.  Clamp defensively.
+        let mut used_sm = false;
+        let gpu_keys: HashSet<(String, u32)> = self
+            .vram_by_gpu
+            .keys()
+            .chain(self.sm_by_gpu.keys())
+            .cloned()
+            .collect();
+        for (host, gpu_index) in &gpu_keys {
+            let key = (host.clone(), *gpu_index);
+            let gpu_power = power_by_gpu.get(&key).copied().unwrap_or(0.0);
+            let ratio = if gpu_has_sm.contains(&key) {
+                let total = total_sm_by_gpu.get(&key).copied().unwrap_or(0);
+                if total == 0 {
+                    continue;
+                }
+                used_sm = true;
+                let user_sm = self.sm_by_gpu.get(&key).copied().unwrap_or(0);
+                (user_sm as f64) / (total as f64)
+            } else {
+                let total = total_vram_by_gpu.get(&key).copied().unwrap_or(0);
+                if total == 0 {
+                    continue;
+                }
+                let user_vram = self.vram_by_gpu.get(&key).copied().unwrap_or(0);
+                (user_vram as f64) / (total as f64)
+            };
             power_watts += (gpu_power * ratio).max(0.0);
         }
         if power_watts < 0.0 {
             power_watts = 0.0;
         }
+        let power_weighting = if used_sm { "sm" } else { "vram" };
 
         let node_count: HashSet<&String> = self.touched_gpus.iter().map(|(h, _)| h).collect();
         let is_system = is_system_user(&user);
@@ -384,28 +425,26 @@ impl UserScratch {
             .into_iter()
             .map(|host| {
                 let ph = self.per_host.get(&host).cloned().unwrap_or_default();
-                // Per-host power is the sum over this host's GPUs of
-                // the same ratio; we recompute it here so drill-down
-                // adds up to the top-level number.
                 let mut host_power = 0.0_f64;
                 for g in &ph.gpu_indices {
-                    let total = total_vram_by_gpu
-                        .get(&(host.clone(), *g))
-                        .copied()
-                        .unwrap_or(0);
-                    if total == 0 {
-                        continue;
-                    }
-                    let user_vram = self
-                        .vram_by_gpu
-                        .get(&(host.clone(), *g))
-                        .copied()
-                        .unwrap_or(0);
-                    let gpu_power = power_by_gpu
-                        .get(&(host.clone(), *g))
-                        .copied()
-                        .unwrap_or(0.0);
-                    host_power += (gpu_power * (user_vram as f64) / (total as f64)).max(0.0);
+                    let key = (host.clone(), *g);
+                    let gpu_power = power_by_gpu.get(&key).copied().unwrap_or(0.0);
+                    let ratio = if gpu_has_sm.contains(&key) {
+                        let total = total_sm_by_gpu.get(&key).copied().unwrap_or(0);
+                        if total == 0 {
+                            continue;
+                        }
+                        let user_sm = self.sm_by_gpu.get(&key).copied().unwrap_or(0);
+                        (user_sm as f64) / (total as f64)
+                    } else {
+                        let total = total_vram_by_gpu.get(&key).copied().unwrap_or(0);
+                        if total == 0 {
+                            continue;
+                        }
+                        let user_vram = self.vram_by_gpu.get(&key).copied().unwrap_or(0);
+                        (user_vram as f64) / (total as f64)
+                    };
+                    host_power += (gpu_power * ratio).max(0.0);
                 }
                 if host_power < 0.0 {
                     host_power = 0.0;
@@ -429,6 +468,7 @@ impl UserScratch {
             process_count: self.touched_pids.len(),
             vram_bytes: self.vram_bytes,
             power_watts,
+            power_weighting,
             longest_seconds: self.longest_seconds,
             top_command: self.top_command,
             per_host,
@@ -533,6 +573,7 @@ mod tests {
             gpu_memory_bytes,
             cpu_pct_tenths: 0,
             start_time_seconds,
+            sm_util_pct: None,
         }
     }
 
@@ -817,6 +858,7 @@ mod tests {
             process_count: 1,
             vram_bytes: 100,
             power_watts: 0.0,
+            power_weighting: "vram",
             longest_seconds: 0,
             top_command: "".into(),
             per_host: vec![],
@@ -829,6 +871,7 @@ mod tests {
             process_count: 1,
             vram_bytes: 300,
             power_watts: 0.0,
+            power_weighting: "vram",
             longest_seconds: 0,
             top_command: "".into(),
             per_host: vec![],
@@ -881,6 +924,7 @@ mod tests {
                     gpu_memory_bytes: 1_000_000_000,
                     cpu_pct_tenths: 0,
                     start_time_seconds: (p * 7) as u64,
+                    sm_util_pct: None,
                 })
                 .collect();
             snaps.push(HostSnapshot {
@@ -940,6 +984,7 @@ mod tests {
                     gpu_memory_bytes: 1024,
                     cpu_pct_tenths: 0,
                     start_time_seconds: (p * 7) as u64,
+                    sm_util_pct: None,
                 })
                 .collect();
             snaps.push(HostSnapshot {

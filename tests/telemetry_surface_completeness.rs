@@ -9,7 +9,7 @@
 
 use all_smi::api::metrics::hardware::HardwareMetricExporter;
 use all_smi::api::metrics::MetricExporter;
-use all_smi::device::types::{GpmMetrics, GpuInfo, TelemetrySource};
+use all_smi::device::types::{GpmMetrics, GpuInfo, NvLinkErrorCount, RemappedRowsInfo, TelemetrySource, ThrottleReasons, UtilizationSample};
 use all_smi::network::metrics_parser::MetricsParser;
 use regex::Regex;
 use std::collections::HashMap;
@@ -73,6 +73,32 @@ fn populated_gpu() -> GpuInfo {
         gsp_firmware_version: None,
         nvlink_remote_devices: Vec::new(),
         gpm_metrics: Some(populated_gpm()),
+        throttle_reasons: Some(ThrottleReasons {
+            sw_power_cap: true,
+            ..ThrottleReasons::default()
+        }),
+        energy_hw_millijoules: Some(12_345_678),
+        remapped_rows: Some(RemappedRowsInfo {
+            correctable: 2,
+            uncorrectable: 0,
+            pending: false,
+            failed: false,
+        }),
+        nvlink_errors: vec![NvLinkErrorCount {
+            link_index: 0,
+            error_type: "crc_flit".to_string(),
+            count: 3,
+        }],
+        utilization_samples: Some(vec![
+            UtilizationSample { timestamp_us: 1, value: 10.0 },
+            UtilizationSample { timestamp_us: 2, value: 20.0 },
+            UtilizationSample { timestamp_us: 3, value: 40.0 },
+        ]),
+        xid_event_counts: {
+            let mut m = HashMap::new();
+            m.insert(13u32, 1u64);
+            m
+        },
         detail: HashMap::new(),
     }
 }
@@ -156,15 +182,48 @@ fn gpm_prometheus_parser_round_trip() {
         exposition.contains(r#"source="gpm""#),
         "exporter missing source label:\n{exposition}"
     );
+    assert!(
+        exposition.contains("all_smi_gpu_throttle_reason{"),
+        "{exposition}"
+    );
+    assert!(
+        exposition.contains(r#"reason="sw_power_cap""#),
+        "{exposition}"
+    );
+    assert!(
+        exposition.contains("all_smi_gpu_energy_hw_millijoules_total{"),
+        "{exposition}"
+    );
+    assert!(
+        exposition.contains("all_smi_gpu_remapped_rows{"),
+        "{exposition}"
+    );
+    assert!(
+        exposition.contains("all_smi_gpu_nvlink_errors_total{"),
+        "{exposition}"
+    );
+    assert!(
+        exposition.contains("all_smi_gpu_utilization_sample_p50{"),
+        "{exposition}"
+    );
+    assert!(
+        exposition.contains("all_smi_gpu_xid_events_total{"),
+        "{exposition}"
+    );
 
     let parser = MetricsParser::new();
     let parsed = parser.parse_metrics(&exposition, "node-p1:9090", &metric_re());
     assert_eq!(parsed.gpu_info.len(), 1);
-    let round = parsed.gpu_info[0]
-        .gpm_metrics
-        .as_ref()
-        .expect("gpm present after parse");
+    let round_gpu = &parsed.gpu_info[0];
+    let round = round_gpu.gpm_metrics.as_ref().expect("gpm present after parse");
     assert_gpm_close(gpu.gpm_metrics.as_ref().unwrap(), round);
+    let thr = round_gpu.throttle_reasons.expect("throttle");
+    assert!(thr.sw_power_cap);
+    assert_eq!(round_gpu.energy_hw_millijoules, Some(12_345_678));
+    let remap = round_gpu.remapped_rows.expect("remap");
+    assert_eq!(remap.correctable, 2);
+    assert!(!round_gpu.nvlink_errors.is_empty());
+    assert_eq!(round_gpu.xid_event_counts.get(&13), Some(&1));
 }
 
 #[test]

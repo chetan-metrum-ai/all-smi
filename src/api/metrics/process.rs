@@ -189,6 +189,62 @@ impl<'a> ProcessMetricExporter<'a> {
                 &labels,
                 format!("{:.2}", process.cpu_percent),
             );
+
+        // Per-process SM / mem / enc / dec util (NVML process_utilization_stats).
+        // Ratios are 0.0-1.0; emitted only when SM stats were applied (signalled
+        // by gpu_mem_util being Some) so dashboards do not confuse "unknown" with 0.
+        if process.gpu_mem_util.is_some() {
+            builder
+                .help(
+                    "all_smi_process_gpu_sm_active_ratio",
+                    "Per-process SM active fraction (0.0-1.0) from NVML process util",
+                )
+                .type_("all_smi_process_gpu_sm_active_ratio", "gauge")
+                .metric(
+                    "all_smi_process_gpu_sm_active_ratio",
+                    &labels,
+                    format!("{:.4}", (process.gpu_utilization / 100.0).clamp(0.0, 1.0)),
+                );
+            if let Some(mem) = process.gpu_mem_util {
+                builder
+                    .help(
+                        "all_smi_process_gpu_mem_active_ratio",
+                        "Per-process GPU memory active fraction (0.0-1.0)",
+                    )
+                    .type_("all_smi_process_gpu_mem_active_ratio", "gauge")
+                    .metric(
+                        "all_smi_process_gpu_mem_active_ratio",
+                        &labels,
+                        format!("{:.4}", (mem as f64 / 100.0).clamp(0.0, 1.0)),
+                    );
+            }
+            if let Some(enc) = process.enc_util {
+                builder
+                    .help(
+                        "all_smi_process_enc_active_ratio",
+                        "Per-process encoder active fraction (0.0-1.0)",
+                    )
+                    .type_("all_smi_process_enc_active_ratio", "gauge")
+                    .metric(
+                        "all_smi_process_enc_active_ratio",
+                        &labels,
+                        format!("{:.4}", (enc as f64 / 100.0).clamp(0.0, 1.0)),
+                    );
+            }
+            if let Some(dec) = process.dec_util {
+                builder
+                    .help(
+                        "all_smi_process_dec_active_ratio",
+                        "Per-process decoder active fraction (0.0-1.0)",
+                    )
+                    .type_("all_smi_process_dec_active_ratio", "gauge")
+                    .metric(
+                        "all_smi_process_dec_active_ratio",
+                        &labels,
+                        format!("{:.4}", (dec as f64 / 100.0).clamp(0.0, 1.0)),
+                    );
+            }
+        }
     }
 }
 
@@ -235,6 +291,9 @@ mod tests {
             priority: 20,
             nice_value: 0,
             gpu_utilization: 0.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         }
     }
 

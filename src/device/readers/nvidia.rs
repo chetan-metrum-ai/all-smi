@@ -19,6 +19,12 @@ use crate::device::common::constants::BYTES_PER_MB;
 use crate::device::common::{execute_command_default, parse_csv_line};
 use crate::device::process_list::{get_all_processes, merge_gpu_processes};
 use crate::device::readers::common_cache::{DetailBuilder, DeviceStaticInfo, MAX_DEVICES};
+use crate::device::readers::nvidia_extras::{
+    apply_pcie_throughput_fallback, collect_energy_hw_millijoules, collect_nvlink_errors,
+    collect_process_util_by_pid, collect_remapped_rows, collect_throttle_reasons,
+    collect_utilization_samples,
+};
+use crate::device::readers::nvidia_xid::{ensure_xid_watcher_started, xid_counts_for};
 use crate::device::readers::nvidia_gpm::GpmState;
 use crate::device::readers::nvidia_hardware::{
     HardwareDetailCache, collect_nvlink_remote_devices,
@@ -316,10 +322,21 @@ impl NvidiaGpuReader {
                     // GPM two-sample path (Hopper+). First poll returns
                     // `None`; later polls fill ratios/rates. Disabled via
                     // ALL_SMI_NVIDIA_DISABLE_GPM=1.
-                    let gpm_metrics = self.gpm_state.collect(nvml, &device);
+                    let mut gpm_metrics = self.gpm_state.collect(nvml, &device);
+                    apply_pcie_throughput_fallback(&device, &mut gpm_metrics);
+                    let throttle_reasons = collect_throttle_reasons(&device);
+                    let energy_hw_millijoules = collect_energy_hw_millijoules(&device);
+                    let remapped_rows = collect_remapped_rows(&device);
+                    let nvlink_errors = collect_nvlink_errors(&device);
+                    let utilization_samples = collect_utilization_samples(&device, None)
+                        .map(|(samples, _)| samples);
+
+                    ensure_xid_watcher_started();
+                    let uuid = device.uuid().unwrap_or_else(|_| format!("GPU-{i}"));
+                    let xid_event_counts = xid_counts_for(&uuid);
 
                     let info = GpuInfo {
-                        uuid: device.uuid().unwrap_or_else(|_| format!("GPU-{i}")),
+                        uuid,
                         time: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
                         name: device.name().unwrap_or_else(|_| "Unknown GPU".to_string()),
                         device_type: "GPU".to_string(),
@@ -365,6 +382,12 @@ impl NvidiaGpuReader {
                         gsp_firmware_version: hw.gsp_firmware_version,
                         nvlink_remote_devices,
                         gpm_metrics,
+                        throttle_reasons,
+                        energy_hw_millijoules,
+                        remapped_rows,
+                        nvlink_errors,
+                        utilization_samples,
+                        xid_event_counts,
                         detail,
                     };
                     gpu_info.push(info);
@@ -587,6 +610,18 @@ fn get_gpu_processes_nvml(nvml: &Nvml) -> (Vec<ProcessInfo>, HashSet<u32>) {
                         }
                     }
                 }
+
+                // Per-process SM / mem / enc / dec utilization (Maxwell+).
+                let (utils, _) = collect_process_util_by_pid(&device, None);
+                for (pid, util) in utils {
+                    let key = (pid, device_uuid.clone());
+                    if let Some(existing) = gpu_process_map.get_mut(&key) {
+                        existing.gpu_utilization = util.sm;
+                        existing.gpu_mem_util = util.mem;
+                        existing.enc_util = util.enc;
+                        existing.dec_util = util.dec;
+                    }
+                }
             }
         }
     }
@@ -644,7 +679,10 @@ fn create_base_process_info(
         uses_gpu: true,
         priority: 0,          // Will be filled by sysinfo
         nice_value: 0,        // Will be filled by sysinfo
-        gpu_utilization: 0.0, // NVIDIA doesn't provide per-process GPU utilization
+        gpu_utilization: 0.0, // Filled from process_utilization_stats when available
+        gpu_mem_util: None,
+        enc_util: None,
+        dec_util: None,
     }
 }
 
@@ -857,6 +895,12 @@ fn get_gpu_info_nvidia_smi() -> Vec<GpuInfo> {
                     gsp_firmware_version: None,
                     nvlink_remote_devices: Vec::new(),
                     gpm_metrics: None,
+                    throttle_reasons: None,
+                    energy_hw_millijoules: None,
+                    remapped_rows: None,
+                    nvlink_errors: Vec::new(),
+                    utilization_samples: None,
+                    xid_event_counts: HashMap::new(),
                     detail,
                 })
             } else {
@@ -909,6 +953,9 @@ fn get_gpu_processes_nvidia_smi() -> (Vec<ProcessInfo>, HashSet<u32>) {
                 priority: 0,
                 nice_value: 0,
                 gpu_utilization: 0.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
             });
         }
     }
@@ -947,6 +994,9 @@ mod tests {
             priority: 0,
             nice_value: 0,
             gpu_utilization: 0.0,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         }
     }
 
