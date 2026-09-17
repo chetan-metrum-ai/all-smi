@@ -61,6 +61,14 @@ schema_version = 1
 # util_idle_warn_mins = 15
 # hysteresis_c = 2
 # bell_on_critical = false
+# power_crit_w = 0
+# hollow_util_warn_mins = 5       # 0 = disable; util>90% & sm_active<0.2
+# hollow_util_warn_ratio = 0.5    # derived hollow TUI / alternate arm
+# no_tensor_warn = false          # sm_active>0.8 & tensor_active<0.1 for 5m
+# memory_bound_info = false       # dram>0.7 & sm_active<0.4
+# remap_pending = true
+# xid = true
+# throttle_warn_mins = 2          # 0 = disable
 # webhook_url = ""            # redacted in `config print` by default
 
 [energy]

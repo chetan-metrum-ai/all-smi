@@ -194,6 +194,33 @@ fn apply_env_alerts(settings: &mut Settings) {
     {
         settings.alerts.power_crit_w = n;
     }
+    if let Ok(v) = env::var("ALL_SMI_ALERTS_HOLLOW_UTIL_WARN_MINS")
+        && let Ok(n) = v.parse::<u32>()
+    {
+        settings.alerts.hollow_util_warn_mins = n;
+    }
+    if let Ok(v) = env::var("ALL_SMI_ALERTS_HOLLOW_UTIL_WARN_RATIO")
+        && let Ok(n) = v.parse::<f64>()
+    {
+        settings.alerts.hollow_util_warn_ratio = n;
+    }
+    if let Ok(v) = env::var("ALL_SMI_ALERTS_NO_TENSOR_WARN") {
+        settings.alerts.no_tensor_warn = matches!(v.as_str(), "1" | "true" | "TRUE" | "True");
+    }
+    if let Ok(v) = env::var("ALL_SMI_ALERTS_MEMORY_BOUND_INFO") {
+        settings.alerts.memory_bound_info = matches!(v.as_str(), "1" | "true" | "TRUE" | "True");
+    }
+    if let Ok(v) = env::var("ALL_SMI_ALERTS_REMAP_PENDING") {
+        settings.alerts.remap_pending = matches!(v.as_str(), "1" | "true" | "TRUE" | "True");
+    }
+    if let Ok(v) = env::var("ALL_SMI_ALERTS_XID") {
+        settings.alerts.xid = matches!(v.as_str(), "1" | "true" | "TRUE" | "True");
+    }
+    if let Ok(v) = env::var("ALL_SMI_ALERTS_THROTTLE_WARN_MINS")
+        && let Ok(n) = v.parse::<u32>()
+    {
+        settings.alerts.throttle_warn_mins = n;
+    }
 }
 
 fn apply_env_energy(settings: &mut Settings) {

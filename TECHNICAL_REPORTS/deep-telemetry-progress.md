@@ -118,3 +118,16 @@ Complete on Shadeform H100 (this PR).
 ### Run dir
 
 - `TECHNICAL_REPORTS/runs/p2-live/`
+
+## P3 — derived hollow util + alert rules
+
+### Status
+
+In progress (this PR).
+
+### Changes
+
+- Derived `hollow_utilization` (`max(0, graphics_active − sm_active)`); Prometheus `all_smi_gpu_hollow_utilization_ratio`; filter DSL `hollow`/`hollow_util`; TUI red when > 0.2
+- Alert rules: hollow util (sustain), no_tensor, memory_bound, remap_pending, xid, throttle_sustained — config/schema/env/example/render + webhook `reason`/`xid`
+- Mock: `ALL_SMI_MOCK_HOLLOW=1` (+ hardware details) forces high board util / low SM for hollow acceptance
+- Docs: `API.md`, README Filtering & Alerts, help text

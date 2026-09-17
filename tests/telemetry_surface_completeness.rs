@@ -210,6 +210,10 @@ fn gpm_prometheus_parser_round_trip() {
         exposition.contains("all_smi_gpu_xid_events_total{"),
         "{exposition}"
     );
+    assert!(
+        exposition.contains("all_smi_gpu_hollow_utilization_ratio{"),
+        "hollow util missing:\n{exposition}"
+    );
 
     let parser = MetricsParser::new();
     let parsed = parser.parse_metrics(&exposition, "node-p1:9090", &metric_re());
@@ -217,6 +221,8 @@ fn gpm_prometheus_parser_round_trip() {
     let round_gpu = &parsed.gpu_info[0];
     let round = round_gpu.gpm_metrics.as_ref().expect("gpm present after parse");
     assert_gpm_close(gpu.gpm_metrics.as_ref().unwrap(), round);
+    let hollow = all_smi::metrics::gpu_readings::hollow_utilization(&gpu).expect("hollow");
+    assert!((hollow - 0.79).abs() < 1e-4, "hollow={hollow}");
     let thr = round_gpu.throttle_reasons.expect("throttle");
     assert!(thr.sw_power_cap);
     assert_eq!(round_gpu.energy_hw_millijoules, Some(12_345_678));

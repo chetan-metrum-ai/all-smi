@@ -120,6 +120,24 @@ pub struct AlertConfig {
     pub hysteresis_c: u32,
     /// How long a card's border should flash after any transition.
     pub flash_duration_secs: u64,
+    /// Hollow-util warn: board util > 90% and sm_active < 0.2 sustained
+    /// this many minutes. `0` disables. Ratio threshold is fixed at 0.9/0.2
+    /// for the primary condition; `hollow_util_warn_ratio` gates TUI emphasis.
+    pub hollow_util_warn_mins: u32,
+    /// Derived hollow (graphics − sm) ratio above which the TUI highlights;
+    /// also used as an alternate hollow-alert arm when ≥ this value with
+    /// board util high. Default `0.5`.
+    pub hollow_util_warn_ratio: f64,
+    /// When true, warn if sm_active > 0.8 and tensor_active < 0.1 for 5 min.
+    pub no_tensor_warn: bool,
+    /// When true, info/warn if DRAM util > 0.7 and sm_active < 0.4.
+    pub memory_bound_info: bool,
+    /// When true, warn on remapped_rows.pending.
+    pub remap_pending: bool,
+    /// When true, warn/crit on rising XID event counts.
+    pub xid: bool,
+    /// Minutes of sustained non-idle throttle before warn. `0` disables.
+    pub throttle_warn_mins: u32,
 }
 
 impl Default for AlertConfig {
@@ -134,6 +152,13 @@ impl Default for AlertConfig {
             webhook_url: String::new(),
             hysteresis_c: 2,
             flash_duration_secs: 2,
+            hollow_util_warn_mins: 5,
+            hollow_util_warn_ratio: 0.5,
+            no_tensor_warn: false,
+            memory_bound_info: false,
+            remap_pending: true,
+            xid: true,
+            throttle_warn_mins: 2,
         }
     }
 }

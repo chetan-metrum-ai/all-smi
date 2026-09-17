@@ -58,9 +58,14 @@ impl GpuMetrics {
                 }
             }
             _ => {
-                // Other platforms: gradual changes
-                let utilization_delta = rng.random_range(-5.0..5.0);
-                self.utilization = (self.utilization + utilization_delta).clamp(0.0, 100.0);
+                // Hollow mock: keep board util high so hollow alerts can fire.
+                if crate::mock::templates::nvidia::is_hollow_mock_enabled() {
+                    self.utilization = 95.0;
+                } else {
+                    // Other platforms: gradual changes
+                    let utilization_delta = rng.random_range(-5.0..5.0);
+                    self.utilization = (self.utilization + utilization_delta).clamp(0.0, 100.0);
+                }
             }
         }
 

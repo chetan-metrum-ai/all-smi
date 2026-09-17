@@ -90,6 +90,17 @@ pub fn first_ane_power_watts(gpus: &[GpuInfo]) -> Option<f64> {
         .map(|mw| mw / 1000.0)
 }
 
+/// Hollow utilization: graphics engine active minus SM active, clamped ≥ 0.
+///
+/// Only defined when both GPM fields are present. Never invents zeros for
+/// missing samples (deep-telemetry P3).
+pub fn hollow_utilization(gpu: &GpuInfo) -> Option<f32> {
+    let gpm = gpu.gpm_metrics.as_ref()?;
+    let graphics = gpm.graphics_active?;
+    let sm = gpm.sm_active?;
+    Some((graphics - sm).max(0.0))
+}
+
 fn mean(values: impl Iterator<Item = f64>) -> Option<f64> {
     let mut count = 0usize;
     let mut sum = 0.0;
@@ -183,6 +194,31 @@ mod tests {
         assert_eq!(mean_utilization(&[]), None);
         assert_eq!(total_power_watts(&[]), 0.0);
         assert_eq!(temperature_std_dev(&[]), None);
+    }
+
+    #[test]
+    fn hollow_utilization_clamps_and_requires_both() {
+        use crate::device::types::GpmMetrics;
+        let mut g = gpu(50.0, 40, 100.0);
+        assert_eq!(hollow_utilization(&g), None);
+        g.gpm_metrics = Some(GpmMetrics {
+            graphics_active: Some(0.9),
+            sm_active: Some(0.2),
+            ..Default::default()
+        });
+        assert!((hollow_utilization(&g).unwrap() - 0.7).abs() < 1e-6);
+        g.gpm_metrics = Some(GpmMetrics {
+            graphics_active: Some(0.1),
+            sm_active: Some(0.5),
+            ..Default::default()
+        });
+        assert_eq!(hollow_utilization(&g), Some(0.0));
+        g.gpm_metrics = Some(GpmMetrics {
+            graphics_active: Some(0.9),
+            sm_active: None,
+            ..Default::default()
+        });
+        assert_eq!(hollow_utilization(&g), None);
     }
 
     #[test]

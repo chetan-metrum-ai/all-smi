@@ -122,6 +122,43 @@ pub fn render_toml(settings: &Settings, show_secrets: bool) -> std::io::Result<S
     )
     .ok();
     writeln!(&mut out, "power_crit_w = {}", settings.alerts.power_crit_w).ok();
+    writeln!(
+        &mut out,
+        "hollow_util_warn_mins = {}",
+        settings.alerts.hollow_util_warn_mins
+    )
+    .ok();
+    writeln!(
+        &mut out,
+        "hollow_util_warn_ratio = {}",
+        format_float(settings.alerts.hollow_util_warn_ratio)
+    )
+    .ok();
+    writeln!(
+        &mut out,
+        "no_tensor_warn = {}",
+        settings.alerts.no_tensor_warn
+    )
+    .ok();
+    writeln!(
+        &mut out,
+        "memory_bound_info = {}",
+        settings.alerts.memory_bound_info
+    )
+    .ok();
+    writeln!(
+        &mut out,
+        "remap_pending = {}",
+        settings.alerts.remap_pending
+    )
+    .ok();
+    writeln!(&mut out, "xid = {}", settings.alerts.xid).ok();
+    writeln!(
+        &mut out,
+        "throttle_warn_mins = {}",
+        settings.alerts.throttle_warn_mins
+    )
+    .ok();
     writeln!(&mut out, "webhook_url = \"{}\"", escape_toml(&webhook)).ok();
     writeln!(&mut out).ok();
 
@@ -272,6 +309,13 @@ pub fn render_json(settings: &Settings, show_secrets: bool) -> std::io::Result<S
             "hysteresis_c": settings.alerts.hysteresis_c,
             "bell_on_critical": settings.alerts.bell_on_critical,
             "power_crit_w": settings.alerts.power_crit_w,
+            "hollow_util_warn_mins": settings.alerts.hollow_util_warn_mins,
+            "hollow_util_warn_ratio": settings.alerts.hollow_util_warn_ratio,
+            "no_tensor_warn": settings.alerts.no_tensor_warn,
+            "memory_bound_info": settings.alerts.memory_bound_info,
+            "remap_pending": settings.alerts.remap_pending,
+            "xid": settings.alerts.xid,
+            "throttle_warn_mins": settings.alerts.throttle_warn_mins,
             "webhook_url": webhook,
         },
         "energy": {

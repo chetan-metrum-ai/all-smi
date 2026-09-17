@@ -182,6 +182,8 @@ mod tests {
             to: "crit".to_string(),
             value: 95.5,
             threshold: 90.0,
+            reason: None,
+            xid: None,
         };
         let j = serde_json::to_string(&p).unwrap();
         // Must contain all keys mentioned in the issue's "Body" snippet.
@@ -205,6 +207,8 @@ mod tests {
             to: "warn".to_string(),
             value: 85.0,
             threshold: 80.0,
+            reason: None,
+            xid: None,
         };
         assert!(enqueue(&tx, p));
     }

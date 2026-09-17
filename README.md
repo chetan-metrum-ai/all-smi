@@ -273,6 +273,13 @@ The canonical schema carries `schema_version = 1` at the top level and nine sect
 | `bell_on_critical` | bool | `false` | `ALL_SMI_ALERTS_BELL_ON_CRITICAL` | Ring the terminal bell when a critical alert triggers. |
 | `webhook_url` | string | `""` | `ALL_SMI_ALERTS_WEBHOOK_URL` | HTTP(S) URL to POST JSON alert payloads to. Redacted in `config print` unless `--show-secrets`. |
 | `power_crit_w` | integer | `0` | `ALL_SMI_ALERTS_POWER_CRIT_W` | GPU power draw critical threshold in watts (`0` = disabled). |
+| `hollow_util_warn_mins` | integer | `5` | `ALL_SMI_ALERTS_HOLLOW_UTIL_WARN_MINS` | Minutes of high board util (>90%) with low SM activity before hollow warn (`0` = disable). |
+| `hollow_util_warn_ratio` | float | `0.5` | `ALL_SMI_ALERTS_HOLLOW_UTIL_WARN_RATIO` | Derived hollow ratio used as an alternate alert arm and TUI emphasis threshold. |
+| `no_tensor_warn` | bool | `false` | `ALL_SMI_ALERTS_NO_TENSOR_WARN` | Warn when sm_active > 0.8 and tensor_active < 0.1 for 5 minutes. |
+| `memory_bound_info` | bool | `false` | `ALL_SMI_ALERTS_MEMORY_BOUND_INFO` | Warn when DRAM util > 0.7 and sm_active < 0.4. |
+| `remap_pending` | bool | `true` | `ALL_SMI_ALERTS_REMAP_PENDING` | Warn when HBM row remapping is pending. |
+| `xid` | bool | `true` | `ALL_SMI_ALERTS_XID` | Warn/crit on rising XID event counts. |
+| `throttle_warn_mins` | integer | `2` | `ALL_SMI_ALERTS_THROTTLE_WARN_MINS` | Minutes of sustained non-idle throttle before warn (`0` = disable). |
 
 **`[energy]`** — energy accounting and cost estimation
 
@@ -1015,7 +1022,9 @@ it with `ESC`.
 
 - Fields: `temp`, `util`, `mem_pct`, `mem_used`, `mem_total`, `power`, `user`,
   `host`, `gpu_name`, `driver`, `index`, `uuid`, `pstate`, `numa`,
-  `device_type`.
+  `device_type`, `sm_active`, `tensor_active`, `sm_occupancy`,
+  `dram_active` / `dram` / `mem_bw`, `hollow` / `hollow_util`, `throttle` / `throttled`,
+  `pcie_tx`, `pcie_rx`, `nvlink_tx`, `nvlink_rx`.
 - Numeric operators: `>`, `>=`, `<`, `<=`, `==`, `!=`.
 - String operators: `==`, `!=`, `~=` (regex, size-bounded to 128 KiB).
 - Combine with `&` / `|` and parenthesise with `(...)`.
@@ -1029,6 +1038,8 @@ Examples:
 /                               # open the bar
 temp>85                         # GPUs over 85 °C
 util<5 & power>300              # idling but still drawing power
+hollow>0.5                      # graphics ≫ SM (hollow util)
+throttle==sw_power_cap          # power-capped cards
 host~=dgx                       # only dgx-* nodes
 user==alice | user==bob         # either user
 (temp>80 | util>90) & numa==0   # hot-or-busy GPUs on NUMA 0
@@ -1050,6 +1061,10 @@ all-smi local --alert-temp 75 --alert-util-low-mins 10
 all-smi view --hosts http://n01:9090 --alert-temp 75
 ```
 
+Built-in rules (see `[alerts]` keys above): temperature, idle utilization,
+power, hollow utilization, optional no-tensor / memory-bound, remap pending,
+rising XID counts, and sustained non-idle throttle.
+
 When a GPU crosses a threshold, all-smi emits:
 
 - A 5-second toast in the status bar.
@@ -1059,7 +1074,11 @@ When a GPU crosses a threshold, all-smi emits:
 Press `A` to toggle the alert history panel, `ESC` to close it. When the
 `[alerts] webhook_url` option is set, each transition is POSTed to the
 configured URL as `{timestamp, host, gpu_index, rule, from, to, value,
-threshold}` JSON with a 2-second timeout, fire-and-forget.
+threshold, reason?, xid?}` JSON with a 2-second timeout, fire-and-forget.
+
+Mock hollow acceptance: `ALL_SMI_MOCK_HARDWARE_DETAILS=1 ALL_SMI_MOCK_HOLLOW=1`
+forces high board util with low `sm_active` so the hollow rule can fire in
+`view` without a live GPU.
 
 **Security notes**
 

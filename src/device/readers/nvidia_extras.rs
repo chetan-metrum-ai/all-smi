@@ -49,17 +49,17 @@ pub fn apply_pcie_throughput_fallback(device: &Device<'_>, gpm: &mut Option<GpmM
     }
     let metrics = gpm.get_or_insert_with(GpmMetrics::default);
     let mut used_fallback = false;
-    if metrics.pcie_tx_bytes_per_sec.is_none() {
-        if let Some(v) = tx {
-            metrics.pcie_tx_bytes_per_sec = Some(v);
-            used_fallback = true;
-        }
+    if metrics.pcie_tx_bytes_per_sec.is_none()
+        && let Some(v) = tx
+    {
+        metrics.pcie_tx_bytes_per_sec = Some(v);
+        used_fallback = true;
     }
-    if metrics.pcie_rx_bytes_per_sec.is_none() {
-        if let Some(v) = rx {
-            metrics.pcie_rx_bytes_per_sec = Some(v);
-            used_fallback = true;
-        }
+    if metrics.pcie_rx_bytes_per_sec.is_none()
+        && let Some(v) = rx
+    {
+        metrics.pcie_rx_bytes_per_sec = Some(v);
+        used_fallback = true;
     }
     if used_fallback && metrics.source.is_none() {
         metrics.source = Some(TelemetrySource::Nvml);
