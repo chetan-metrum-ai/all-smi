@@ -113,7 +113,7 @@ Complete on Shadeform H100 (this PR).
 
 - [x] Unit tests (`nvidia_extras`) + `telemetry_surface_completeness`
 - [x] Live H100 scrape exposes energy/GPM/PCIe/remapped/util samples; `throttle_reason{gpu_idle}` (power-cap change requires root; not available on Shadeform user)
-- [ ] PR merged
+- [x] PR #2 merged into fork `main`
 
 ### Run dir
 
