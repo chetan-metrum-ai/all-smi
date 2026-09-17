@@ -123,7 +123,7 @@ Complete on Shadeform H100 (this PR).
 
 ### Status
 
-In progress (this PR).
+Complete (merged via PR #3).
 
 ### Changes
 
@@ -131,3 +131,22 @@ In progress (this PR).
 - Alert rules: hollow util (sustain), no_tensor, memory_bound, remap_pending, xid, throttle_sustained — config/schema/env/example/render + webhook `reason`/`xid`
 - Mock: `ALL_SMI_MOCK_HOLLOW=1` (+ hardware details) forces high board util / low SM for hollow acceptance
 - Docs: `API.md`, README Filtering & Alerts, help text
+
+### Acceptance
+
+- [x] Unit/integration tests + clippy on H100
+- [x] Mock hollow smoke (`all-smi-mock-server` with hollow env)
+- [x] PR #3 merged into fork `main`
+
+## P4 — DCGM plugin
+
+### Status
+
+Complete (this PR).
+
+### Changes
+
+- Workspace crate `crates/all-smi-dcgm-plugin` (`liball_smi_dcgm.so`); ABI + loader mirroring AMD; vendored bindgen bindings
+- Plugin dlopens `libdcgm.so.4`, connects to hostengine (embedded fallback), watches PROF_*/XID/remap/throttle
+- `nvidia.rs` merge: fill only `None` GPM fields from DCGM; `Source: <field>=dcgm`
+- Release workflow builds/packages the DCGM `.so` on Linux glibc

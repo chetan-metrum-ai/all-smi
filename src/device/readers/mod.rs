@@ -60,6 +60,10 @@ pub mod tenstorrent;
 pub mod amd;
 #[cfg(all(target_os = "linux", not(target_env = "musl")))]
 pub mod amd_plugin_api;
+#[cfg(all(target_os = "linux", not(target_env = "musl")))]
+pub mod dcgm;
+#[cfg(all(target_os = "linux", not(target_env = "musl")))]
+pub mod dcgm_plugin_api;
 
 #[cfg(target_os = "windows")]
 pub mod amd_windows;
