@@ -395,6 +395,10 @@ impl NvidiaGpuReader {
             }
         }
 
+        // DCGM plugin fills only fields still `None` after GPM/NVML (P4).
+        #[cfg(all(target_os = "linux", not(target_env = "musl")))]
+        crate::device::readers::dcgm::merge_into_gpus(&mut gpu_info);
+
         gpu_info
     }
 }

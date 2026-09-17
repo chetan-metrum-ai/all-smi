@@ -12,7 +12,7 @@ edition = "2024"
 rust-version = "1.96"
 
 [workspace]
-members = [".", "crates/all-smi-amd-plugin"]
+members = [".", "crates/all-smi-amd-plugin", "crates/all-smi-dcgm-plugin"]
 resolver = "3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -124,6 +124,9 @@ cli = ["dep:clap", "dep:crossterm", "dep:axum", "dep:tower-http", "dep:anyhow", 
 # Consequently `default-features = false` no longer removes AMD detection from
 # the main crate, and neither feature state adds libdrm to a consumer binary.
 amd = []
+# Accepted no-op: DCGM sampling lives in `all-smi-dcgm-plugin` (dlopen libdcgm).
+# The main crate only ships the runtime loader on glibc Linux.
+dcgm = []
 mock = ["cli", "dep:rand", "dep:hyper", "dep:hyper-util"]
 # Opt-in Furiosa NPU support. Surfaced by the `furiosa.*` doctor checks
 # (issue #188) and used by the Linux-target `furiosa-smi-rs` optional dep.

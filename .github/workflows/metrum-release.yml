@@ -140,6 +140,18 @@ jobs:
           test -f "target/${{ matrix.target }}/release/liball_smi_amd.so"
           echo "AMD_PLUGIN_BUILT=true" >> "$GITHUB_ENV"
 
+      - name: Build DCGM runtime plugin (Linux glibc only)
+        if: runner.os == 'Linux' && !contains(matrix.target, 'musl')
+        run: |
+          set -euo pipefail
+          echo "DCGM_PLUGIN_BUILT=false" >> "$GITHUB_ENV"
+          if [ ! -f crates/all-smi-dcgm-plugin/Cargo.toml ]; then
+            exit 0
+          fi
+          cargo build --release --target ${{ matrix.target }} --locked -p all-smi-dcgm-plugin
+          test -f "target/${{ matrix.target }}/release/liball_smi_dcgm.so"
+          echo "DCGM_PLUGIN_BUILT=true" >> "$GITHUB_ENV"
+
       - name: Package Linux binary (tar.gz)
         if: runner.os == 'Linux'
         run: |
@@ -150,8 +162,7 @@ jobs:
           if [ "${AMD_PLUGIN_BUILT:-false}" = true ]; then
             cp "$BIN_DIR/liball_smi_amd.so" package/
           fi
-          # DCGM plugin lands in P4; include when present.
-          if [ -f "$BIN_DIR/liball_smi_dcgm.so" ]; then
+          if [ "${DCGM_PLUGIN_BUILT:-false}" = true ]; then
             cp "$BIN_DIR/liball_smi_dcgm.so" package/
           fi
           if [ -f docs/man/all-smi.1 ]; then

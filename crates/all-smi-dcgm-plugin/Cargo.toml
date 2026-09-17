@@ -1,0 +1,24 @@
+# Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
+[package]
+name = "all-smi-dcgm-plugin"
+version = "0.26.3"
+description = "Runtime-loaded DCGM backend for all-smi (dlopen libdcgm; does not link into the main binary)"
+authors = ["Metrum AI <engineering@metrum.ai>"]
+license = "Apache-2.0"
+repository = "https://github.com/chetan-metrum-ai/all-smi"
+edition = "2024"
+rust-version = "1.96"
+publish = false
+
+[lib]
+name = "all_smi_dcgm"
+crate-type = ["cdylib"]
+
+[dependencies]
+all-smi = { path = "../..", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[target.'cfg(all(target_os = "linux", not(target_env = "musl")))'.dependencies]
+libc = "0.2"
+libloading = "0.9"
