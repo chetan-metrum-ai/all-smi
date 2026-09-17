@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 //! Integration tests for the `all-smi doctor` subcommand (issue #188).
 //!
@@ -140,6 +142,10 @@ async fn doctor_specific_check_ids_are_registered() {
         "privileges.user",
         "container.runtime",
         "nvidia.nvml.loadable",
+        "nvidia.gpm.supported",
+        "nvidia.dcgm.library",
+        "nvidia.dcgm.hostengine",
+        "nvidia.dcgm.prof_module",
         "env.all_smi",
         "env.cuda",
         "network.dns",

@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 use crate::device::GpuReader;
 use crate::device::common::constants::FURIOSA_HBM3_MEMORY_BYTES;
@@ -234,11 +236,11 @@ impl FuriosaNpuReader {
                         // Build detail HashMap using DetailBuilder
                         let detail = DetailBuilder::new()
                             .insert("serial_number", info.serial())
-                            .insert("firmware_version", &info.firmware_version().to_string())
+                            .insert("firmware_version", info.firmware_version().to_string())
                             .insert("architecture", format!("{:?}", info.arch()))
-                            .insert("core_count", &info.core_num().to_string())
+                            .insert("core_count", info.core_num().to_string())
                             .insert("bdf", info.bdf())
-                            .insert("numa_node", &info.numa_node().to_string())
+                            .insert("numa_node", info.numa_node().to_string())
                             // Add unified AI acceleration library labels
                             .insert_lib_info("PERT", Some(&info.pert_version().to_string()))
                             .build();
@@ -547,6 +549,7 @@ fn first_pe_frequency_mhz(core_freq: &furiosa_smi_rs::CoreFrequency) -> u32 {
 
 /// Create GpuInfo from RS API data using cached static info
 #[cfg(all(target_os = "linux", feature = "furiosa-smi-rs"))]
+#[allow(clippy::too_many_arguments)]
 fn create_gpu_info_from_device_2025_cached(
     static_info: &DeviceStaticInfo,
     utilization: &furiosa_smi_rs::CoreUtilization,
@@ -610,6 +613,7 @@ fn create_gpu_info_from_device_2025_cached(
 
 #[cfg(all(target_os = "linux", feature = "furiosa-smi-rs"))]
 #[allow(dead_code)]
+#[allow(clippy::too_many_arguments)]
 fn create_gpu_info_from_device_2025(
     info: &furiosa_smi_rs::DeviceInfo,
     utilization: &furiosa_smi_rs::CoreUtilization,
