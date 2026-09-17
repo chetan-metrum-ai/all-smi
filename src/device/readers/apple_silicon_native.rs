@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
-
 //! Native Apple Silicon GPU reader using macOS native APIs
 //!
 //! This reader uses IOReport, SMC, and other native macOS APIs to collect
@@ -25,6 +23,7 @@ use std::collections::HashMap;
 //! - More stable (no external process)
 //! - Additional metrics (actual temperature, system power)
 
+use std::collections::HashMap;
 use crate::device::common::command_executor::execute_command_default;
 use crate::device::macos_native::{
     NativeMetricsManager, get_native_metrics_manager, initialize_native_metrics_manager,
