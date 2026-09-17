@@ -68,3 +68,19 @@ __pycache__/
 *.md
 .*
 tmp.pb
+
+# Secrets and Shadeform instance state (never commit)
+env.json
+.shadeform-state.json
+*.pem
+.shadeform_ed25519
+.shadeform_ed25519.pub
+.shadeform_known_hosts
+
+# Track deep-telemetry technical reports despite the *.md / .* rules above
+!TECHNICAL_REPORTS/
+!TECHNICAL_REPORTS/**
+!TECHNICAL_REPORTS/**/*.md
+!.github/
+!.github/**
+!.gitignore
