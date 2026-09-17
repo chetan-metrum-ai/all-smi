@@ -121,6 +121,13 @@ pub struct AlertsSection {
     pub bell_on_critical: Option<bool>,
     pub webhook_url: Option<String>,
     pub power_crit_w: Option<u32>,
+    pub hollow_util_warn_mins: Option<u32>,
+    pub hollow_util_warn_ratio: Option<f64>,
+    pub no_tensor_warn: Option<bool>,
+    pub memory_bound_info: Option<bool>,
+    pub remap_pending: Option<bool>,
+    pub xid: Option<bool>,
+    pub throttle_warn_mins: Option<u32>,
 }
 
 /// `[energy]` section — maps to [`crate::common::config::EnergyConfig`].

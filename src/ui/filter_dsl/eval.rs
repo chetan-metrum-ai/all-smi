@@ -108,6 +108,9 @@ pub trait DeviceRowView {
     fn throttled_field(&self) -> Option<f64> {
         None
     }
+    fn hollow_field(&self) -> Option<f64> {
+        None
+    }
 
     /// Generic presence check used when the evaluator needs to distinguish
     /// "field absent" from "field value compared false". The default
@@ -139,6 +142,7 @@ pub trait DeviceRowView {
             Field::NvlinkRx => self.nvlink_rx_field().is_none(),
             Field::Throttle => self.throttled_field().is_none(),
             Field::Throttled => self.throttled_field().is_none(),
+            Field::Hollow => self.hollow_field().is_none(),
         }
     }
 }
@@ -260,6 +264,7 @@ fn numeric_value<R: DeviceRowView + ?Sized>(field: Field, row: &R) -> Option<f64
         Field::NvlinkTx => row.nvlink_tx_field(),
         Field::NvlinkRx => row.nvlink_rx_field(),
         Field::Throttled => row.throttled_field(),
+        Field::Hollow => row.hollow_field(),
         _ => None,
     }
 }
@@ -391,6 +396,9 @@ impl DeviceRowView for GpuInfo {
     fn throttled_field(&self) -> Option<f64> {
         self.throttle_reasons
             .map(|r| if r.is_throttled() { 1.0 } else { 0.0 })
+    }
+    fn hollow_field(&self) -> Option<f64> {
+        crate::metrics::gpu_readings::hollow_utilization(self).map(|v| v as f64)
     }
 }
 

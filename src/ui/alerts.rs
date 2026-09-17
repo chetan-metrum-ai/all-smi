@@ -1,4 +1,5 @@
 // Copyright 2025 Lablup Inc. and Jeongkyu Shin
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,6 +60,18 @@ pub enum RuleKind {
     IdleUtilization,
     /// Power consumption exceeding `power_crit_w`.
     Power,
+    /// High board util with low SM activity (hollow / graphics-idle).
+    HollowUtilization,
+    /// High SM activity without tensor pipe work.
+    NoTensor,
+    /// High DRAM bandwidth with low SM activity (memory-bound).
+    MemoryBound,
+    /// Pending HBM row remaps.
+    RemapPending,
+    /// Rising GPU XID event counts.
+    Xid,
+    /// Sustained non-idle clock throttle.
+    ThrottleSustained,
 }
 
 impl RuleKind {
@@ -67,6 +80,12 @@ impl RuleKind {
             RuleKind::Temperature => "temperature",
             RuleKind::IdleUtilization => "idle_utilization",
             RuleKind::Power => "power",
+            RuleKind::HollowUtilization => "hollow_utilization",
+            RuleKind::NoTensor => "no_tensor",
+            RuleKind::MemoryBound => "memory_bound",
+            RuleKind::RemapPending => "remap_pending",
+            RuleKind::Xid => "xid",
+            RuleKind::ThrottleSustained => "throttle_sustained",
         }
     }
 }
@@ -117,6 +136,10 @@ pub struct AlertTransition {
     /// memory alerts it can be extended by building a different key.
     #[allow(dead_code)] // Consumed by the binary-side border-flash renderer
     pub card_key: String,
+    /// Optional throttle / hollow reason label for webhook consumers.
+    pub reason: Option<String>,
+    /// Optional XID code when `rule == Xid`.
+    pub xid: Option<u32>,
 }
 
 /// The alerter owned by `AppState`. Reset between mode switches is safe
@@ -128,6 +151,8 @@ pub struct Alerter {
     /// Active border-flash deadlines keyed by `card_key`. Render path reads
     /// this to decide if the border should blink.
     flashing: HashMap<String, Instant>,
+    /// Last-seen XID counters per device (for rising-edge detection).
+    last_xid_counts: HashMap<String, HashMap<u32, u64>>,
 }
 
 impl Alerter {
@@ -136,6 +161,7 @@ impl Alerter {
             config,
             states: HashMap::new(),
             flashing: HashMap::new(),
+            last_xid_counts: HashMap::new(),
         }
     }
 
@@ -174,8 +200,12 @@ impl Alerter {
     /// Returns the set of transitions that the caller must forward to the
     /// notification manager / webhook queue.
     pub fn evaluate(&mut self, gpus: &[GpuInfo]) -> Vec<AlertTransition> {
+        self.evaluate_at(gpus, Instant::now())
+    }
+
+    /// Like [`Self::evaluate`] but with an injectable clock for sustain timers.
+    fn evaluate_at(&mut self, gpus: &[GpuInfo], now: Instant) -> Vec<AlertTransition> {
         let mut transitions = Vec::new();
-        let now = Instant::now();
         // Collect device ids present this tick up front so we can bound
         // `self.states` at the end. Without this GC the HashMap grows
         // monotonically on clusters with node churn (GPUs going away
@@ -187,6 +217,12 @@ impl Alerter {
             self.evaluate_temperature(gpu, &mut transitions);
             self.evaluate_idle_utilization(gpu, now, &mut transitions);
             self.evaluate_power(gpu, &mut transitions);
+            self.evaluate_hollow_utilization(gpu, now, &mut transitions);
+            self.evaluate_no_tensor(gpu, now, &mut transitions);
+            self.evaluate_memory_bound(gpu, &mut transitions);
+            self.evaluate_remap_pending(gpu, &mut transitions);
+            self.evaluate_xid(gpu, &mut transitions);
+            self.evaluate_throttle_sustained(gpu, now, &mut transitions);
         }
         // Garbage-collect expired flash deadlines so the map doesn't grow
         // without bound across long sessions.
@@ -197,6 +233,7 @@ impl Alerter {
         // hysteresis state which is fine: the worst case is a re-issue
         // of ok->warn when it reappears, not a missed alert.
         self.states.retain(|k, _| seen.contains(&k.device_id));
+        self.last_xid_counts.retain(|id, _| seen.contains(id));
         transitions
     }
 
@@ -283,6 +320,8 @@ impl Alerter {
                 threshold,
                 message,
                 card_key,
+                reason: None,
+                xid: None,
             });
         }
     }
@@ -343,6 +382,8 @@ impl Alerter {
                     threshold,
                     message,
                     card_key,
+                    reason: None,
+                    xid: None,
                 });
             }
         } else if state.idle_since.is_some() || prev_level != AlertLevel::Ok {
@@ -372,6 +413,8 @@ impl Alerter {
                     threshold,
                     message,
                     card_key,
+                    reason: None,
+                    xid: None,
                 });
             }
         }
@@ -438,8 +481,427 @@ impl Alerter {
                 threshold: limit,
                 message,
                 card_key,
+                reason: None,
+                xid: None,
             });
         }
+    }
+
+    fn evaluate_hollow_utilization(
+        &mut self,
+        gpu: &GpuInfo,
+        now: Instant,
+        out: &mut Vec<AlertTransition>,
+    ) {
+        if self.config.hollow_util_warn_mins == 0 {
+            return;
+        }
+        let Some(util) = gpu.utilization_reading() else {
+            return;
+        };
+        let util_frac = util / 100.0;
+        let sm = gpu.gpm_metrics.and_then(|g| g.sm_active);
+        let hollow = crate::metrics::gpu_readings::hollow_utilization(gpu);
+        let ratio = self.config.hollow_util_warn_ratio;
+        // Primary: board util > 90% and sm_active < 0.2.
+        // Alternate arm: derived hollow ≥ warn ratio with util > 90%.
+        let condition = util_frac > 0.9
+            && (sm.map(|s| s < 0.2).unwrap_or(false)
+                || hollow.map(|h| h >= ratio as f32).unwrap_or(false));
+
+        let warn_after =
+            std::time::Duration::from_secs(self.config.hollow_util_warn_mins as u64 * 60);
+        let key = RuleKey {
+            device_id: device_id(gpu),
+            rule: RuleKind::HollowUtilization,
+        };
+        let state = self.states.entry(key).or_default();
+        let prev = state.level;
+        let value = hollow.map(f64::from).unwrap_or(util_frac);
+
+        if condition {
+            let start = state.idle_since.get_or_insert(now);
+            let target = if now.duration_since(*start) >= warn_after {
+                AlertLevel::Warn
+            } else {
+                AlertLevel::Ok
+            };
+            if target != prev {
+                state.level = target;
+                let threshold = ratio;
+                let message = build_message(
+                    gpu,
+                    RuleKind::HollowUtilization,
+                    prev,
+                    target,
+                    value,
+                    threshold,
+                );
+                let card_key = device_id(gpu);
+                self.mark_flash(&card_key);
+                out.push(AlertTransition {
+                    timestamp: Local::now(),
+                    host: gpu.hostname.clone(),
+                    gpu_index: gpu.detail.get("index").and_then(|s| s.parse().ok()),
+                    rule: RuleKind::HollowUtilization,
+                    from: prev,
+                    to: target,
+                    value,
+                    threshold,
+                    message,
+                    card_key,
+                    reason: Some("hollow".into()),
+                    xid: None,
+                });
+            }
+        } else if state.idle_since.is_some() || prev != AlertLevel::Ok {
+            state.idle_since = None;
+            state.level = AlertLevel::Ok;
+            if prev != AlertLevel::Ok {
+                let threshold = ratio;
+                let message = build_message(
+                    gpu,
+                    RuleKind::HollowUtilization,
+                    prev,
+                    AlertLevel::Ok,
+                    value,
+                    threshold,
+                );
+                let card_key = device_id(gpu);
+                self.mark_flash(&card_key);
+                out.push(AlertTransition {
+                    timestamp: Local::now(),
+                    host: gpu.hostname.clone(),
+                    gpu_index: gpu.detail.get("index").and_then(|s| s.parse().ok()),
+                    rule: RuleKind::HollowUtilization,
+                    from: prev,
+                    to: AlertLevel::Ok,
+                    value,
+                    threshold,
+                    message,
+                    card_key,
+                    reason: Some("hollow".into()),
+                    xid: None,
+                });
+            }
+        }
+    }
+
+    fn evaluate_no_tensor(
+        &mut self,
+        gpu: &GpuInfo,
+        now: Instant,
+        out: &mut Vec<AlertTransition>,
+    ) {
+        if !self.config.no_tensor_warn {
+            return;
+        }
+        let Some(gpm) = gpu.gpm_metrics.as_ref() else {
+            return;
+        };
+        let (Some(sm), Some(tensor)) = (gpm.sm_active, gpm.tensor_active) else {
+            return;
+        };
+        let condition = sm > 0.8 && tensor < 0.1;
+        let warn_after = std::time::Duration::from_secs(5 * 60);
+        let key = RuleKey {
+            device_id: device_id(gpu),
+            rule: RuleKind::NoTensor,
+        };
+        let state = self.states.entry(key).or_default();
+        let prev = state.level;
+        let value = f64::from(tensor);
+
+        if condition {
+            let start = state.idle_since.get_or_insert(now);
+            let target = if now.duration_since(*start) >= warn_after {
+                AlertLevel::Warn
+            } else {
+                AlertLevel::Ok
+            };
+            if target != prev {
+                state.level = target;
+                self.push_transition(
+                    gpu,
+                    RuleKind::NoTensor,
+                    prev,
+                    target,
+                    value,
+                    0.1,
+                    None,
+                    None,
+                    out,
+                );
+            }
+        } else if state.idle_since.is_some() || prev != AlertLevel::Ok {
+            state.idle_since = None;
+            state.level = AlertLevel::Ok;
+            if prev != AlertLevel::Ok {
+                self.push_transition(
+                    gpu,
+                    RuleKind::NoTensor,
+                    prev,
+                    AlertLevel::Ok,
+                    value,
+                    0.1,
+                    None,
+                    None,
+                    out,
+                );
+            }
+        }
+    }
+
+    fn evaluate_memory_bound(&mut self, gpu: &GpuInfo, out: &mut Vec<AlertTransition>) {
+        if !self.config.memory_bound_info {
+            return;
+        }
+        let Some(gpm) = gpu.gpm_metrics.as_ref() else {
+            return;
+        };
+        let (Some(dram), Some(sm)) = (gpm.memory_bandwidth_utilization, gpm.sm_active) else {
+            return;
+        };
+        let condition = dram > 0.7 && sm < 0.4;
+        let key = RuleKey {
+            device_id: device_id(gpu),
+            rule: RuleKind::MemoryBound,
+        };
+        let current = self.states.entry(key).or_default().level;
+        let target = if condition {
+            AlertLevel::Warn
+        } else {
+            AlertLevel::Ok
+        };
+        if target != current {
+            let key = RuleKey {
+                device_id: device_id(gpu),
+                rule: RuleKind::MemoryBound,
+            };
+            if let Some(state) = self.states.get_mut(&key) {
+                state.level = target;
+            }
+            self.push_transition(
+                gpu,
+                RuleKind::MemoryBound,
+                current,
+                target,
+                f64::from(dram),
+                0.7,
+                Some("memory_bound".into()),
+                None,
+                out,
+            );
+        }
+    }
+
+    fn evaluate_remap_pending(&mut self, gpu: &GpuInfo, out: &mut Vec<AlertTransition>) {
+        if !self.config.remap_pending {
+            return;
+        }
+        let pending = gpu
+            .remapped_rows
+            .as_ref()
+            .map(|r| r.pending)
+            .unwrap_or(false);
+        let key = RuleKey {
+            device_id: device_id(gpu),
+            rule: RuleKind::RemapPending,
+        };
+        let current = self.states.entry(key).or_default().level;
+        let target = if pending {
+            AlertLevel::Warn
+        } else {
+            AlertLevel::Ok
+        };
+        if target != current {
+            let key = RuleKey {
+                device_id: device_id(gpu),
+                rule: RuleKind::RemapPending,
+            };
+            if let Some(state) = self.states.get_mut(&key) {
+                state.level = target;
+            }
+            self.push_transition(
+                gpu,
+                RuleKind::RemapPending,
+                current,
+                target,
+                if pending { 1.0 } else { 0.0 },
+                1.0,
+                Some("remap_pending".into()),
+                None,
+                out,
+            );
+        }
+    }
+
+    fn evaluate_xid(&mut self, gpu: &GpuInfo, out: &mut Vec<AlertTransition>) {
+        if !self.config.xid {
+            return;
+        }
+        let id = device_id(gpu);
+        let prev_counts = self.last_xid_counts.get(&id).cloned().unwrap_or_default();
+        let mut rose: Option<(u32, u64)> = None;
+        let mut crit = false;
+        for (&code, &count) in &gpu.xid_event_counts {
+            let prev = prev_counts.get(&code).copied().unwrap_or(0);
+            if count > prev {
+                rose = Some((code, count));
+                // Known severe XIDs escalate to crit.
+                if matches!(code, 31 | 43 | 48 | 74 | 79 | 94 | 95) {
+                    crit = true;
+                }
+            }
+        }
+        self.last_xid_counts
+            .insert(id.clone(), gpu.xid_event_counts.clone());
+
+        let key = RuleKey {
+            device_id: id,
+            rule: RuleKind::Xid,
+        };
+        let current = self.states.entry(key).or_default().level;
+
+        if let Some((xid_code, value)) = rose {
+            let target = if crit {
+                AlertLevel::Crit
+            } else {
+                AlertLevel::Warn
+            };
+            let key = RuleKey {
+                device_id: device_id(gpu),
+                rule: RuleKind::Xid,
+            };
+            if let Some(state) = self.states.get_mut(&key) {
+                state.level = target;
+            }
+            self.push_transition(
+                gpu,
+                RuleKind::Xid,
+                current,
+                target,
+                value as f64,
+                xid_code as f64,
+                Some(format!("xid={xid_code}")),
+                Some(xid_code),
+                out,
+            );
+        } else if current != AlertLevel::Ok {
+            let key = RuleKey {
+                device_id: device_id(gpu),
+                rule: RuleKind::Xid,
+            };
+            if let Some(state) = self.states.get_mut(&key) {
+                state.level = AlertLevel::Ok;
+            }
+            self.push_transition(
+                gpu,
+                RuleKind::Xid,
+                current,
+                AlertLevel::Ok,
+                0.0,
+                0.0,
+                None,
+                None,
+                out,
+            );
+        }
+    }
+
+    fn evaluate_throttle_sustained(
+        &mut self,
+        gpu: &GpuInfo,
+        now: Instant,
+        out: &mut Vec<AlertTransition>,
+    ) {
+        if self.config.throttle_warn_mins == 0 {
+            return;
+        }
+        let Some(reasons) = gpu.throttle_reasons else {
+            return;
+        };
+        let condition = reasons.is_throttled();
+        let warn_after =
+            std::time::Duration::from_secs(self.config.throttle_warn_mins as u64 * 60);
+        let key = RuleKey {
+            device_id: device_id(gpu),
+            rule: RuleKind::ThrottleSustained,
+        };
+        let state = self.states.entry(key).or_default();
+        let prev = state.level;
+        let labels = reasons.active_labels().join(",");
+
+        if condition {
+            let start = state.idle_since.get_or_insert(now);
+            let target = if now.duration_since(*start) >= warn_after {
+                AlertLevel::Warn
+            } else {
+                AlertLevel::Ok
+            };
+            if target != prev {
+                state.level = target;
+                self.push_transition(
+                    gpu,
+                    RuleKind::ThrottleSustained,
+                    prev,
+                    target,
+                    1.0,
+                    self.config.throttle_warn_mins as f64,
+                    Some(labels),
+                    None,
+                    out,
+                );
+            }
+        } else if state.idle_since.is_some() || prev != AlertLevel::Ok {
+            state.idle_since = None;
+            state.level = AlertLevel::Ok;
+            if prev != AlertLevel::Ok {
+                self.push_transition(
+                    gpu,
+                    RuleKind::ThrottleSustained,
+                    prev,
+                    AlertLevel::Ok,
+                    0.0,
+                    self.config.throttle_warn_mins as f64,
+                    Some(labels),
+                    None,
+                    out,
+                );
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn push_transition(
+        &mut self,
+        gpu: &GpuInfo,
+        rule: RuleKind,
+        from: AlertLevel,
+        to: AlertLevel,
+        value: f64,
+        threshold: f64,
+        reason: Option<String>,
+        xid: Option<u32>,
+        out: &mut Vec<AlertTransition>,
+    ) {
+        let message = build_message(gpu, rule, from, to, value, threshold);
+        let card_key = device_id(gpu);
+        self.mark_flash(&card_key);
+        out.push(AlertTransition {
+            timestamp: Local::now(),
+            host: gpu.hostname.clone(),
+            gpu_index: gpu.detail.get("index").and_then(|s| s.parse().ok()),
+            rule,
+            from,
+            to,
+            value,
+            threshold,
+            message,
+            card_key,
+            reason,
+            xid,
+        });
     }
 }
 
@@ -467,6 +929,26 @@ fn build_message(
         }
         RuleKind::Power => {
             format!("{hn} gpu{ix} power: {from_s}->{to_s} ({value:.0}W / thr {threshold:.0}W)",)
+        }
+        RuleKind::HollowUtilization => {
+            format!(
+                "{hn} gpu{ix} hollow: {from_s}->{to_s} (hollow={value:.2} / thr {threshold:.2})",
+            )
+        }
+        RuleKind::NoTensor => {
+            format!("{hn} gpu{ix} no_tensor: {from_s}->{to_s} (tensor={value:.2})",)
+        }
+        RuleKind::MemoryBound => {
+            format!("{hn} gpu{ix} memory_bound: {from_s}->{to_s} (dram={value:.2})",)
+        }
+        RuleKind::RemapPending => {
+            format!("{hn} gpu{ix} remap_pending: {from_s}->{to_s}",)
+        }
+        RuleKind::Xid => {
+            format!("{hn} gpu{ix} xid: {from_s}->{to_s} (xid={threshold:.0} count={value:.0})",)
+        }
+        RuleKind::ThrottleSustained => {
+            format!("{hn} gpu{ix} throttle: {from_s}->{to_s} (>= {threshold:.0}m)",)
         }
     }
 }
@@ -497,6 +979,10 @@ pub struct WebhookPayload {
     pub to: String,
     pub value: f64,
     pub threshold: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub xid: Option<u32>,
 }
 
 impl From<&AlertTransition> for WebhookPayload {
@@ -510,6 +996,8 @@ impl From<&AlertTransition> for WebhookPayload {
             to: t.to.as_label().to_string(),
             value: t.value,
             threshold: t.threshold,
+            reason: t.reason.clone(),
+            xid: t.xid,
         }
     }
 }
@@ -572,6 +1060,13 @@ mod tests {
             webhook_url: String::new(),
             hysteresis_c: 2,
             flash_duration_secs: 2,
+            hollow_util_warn_mins: 0,
+            hollow_util_warn_ratio: 0.5,
+            no_tensor_warn: false,
+            memory_bound_info: false,
+            remap_pending: false,
+            xid: false,
+            throttle_warn_mins: 0,
         }
     }
 
@@ -773,5 +1268,64 @@ mod tests {
         assert_eq!(a.states.len(), 1);
         a.evaluate(&[]);
         assert_eq!(a.states.len(), 0);
+    }
+
+    #[test]
+    fn hollow_util_warns_after_sustain() {
+        let mut cfg = default_cfg();
+        cfg.hollow_util_warn_mins = 1;
+        cfg.hollow_util_warn_ratio = 0.5;
+        let mut a = Alerter::new(cfg);
+        let mut g = gpu(50, 95.0, 0.0);
+        g.gpm_metrics = Some(crate::device::types::GpmMetrics {
+            graphics_active: Some(0.95),
+            sm_active: Some(0.05),
+            ..Default::default()
+        });
+        let t0 = Instant::now();
+        let first = a.evaluate_at(&[g.clone()], t0);
+        assert!(first.is_empty(), "should not fire before sustain: {first:?}");
+        let later = a.evaluate_at(&[g], t0 + std::time::Duration::from_secs(61));
+        assert_eq!(later.len(), 1);
+        assert_eq!(later[0].rule, RuleKind::HollowUtilization);
+        assert_eq!(later[0].to, AlertLevel::Warn);
+    }
+
+    #[test]
+    fn remap_pending_warns_when_enabled() {
+        let mut cfg = default_cfg();
+        cfg.remap_pending = true;
+        let mut a = Alerter::new(cfg);
+        let mut g = gpu(50, 10.0, 0.0);
+        g.remapped_rows = Some(crate::device::types::RemappedRowsInfo {
+            correctable: 0,
+            uncorrectable: 0,
+            pending: true,
+            failed: false,
+        });
+        let t = a.evaluate(&[g]);
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].rule, RuleKind::RemapPending);
+        assert_eq!(t[0].to, AlertLevel::Warn);
+    }
+
+    #[test]
+    fn xid_rising_emits_warn_with_payload_fields() {
+        let mut cfg = default_cfg();
+        cfg.xid = true;
+        let mut a = Alerter::new(cfg);
+        let mut g = gpu(50, 10.0, 0.0);
+        g.xid_event_counts.insert(13, 1);
+        let t = a.evaluate(&[g.clone()]);
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].rule, RuleKind::Xid);
+        assert_eq!(t[0].xid, Some(13));
+        let payload = WebhookPayload::from(&t[0]);
+        assert_eq!(payload.xid, Some(13));
+        assert!(payload.reason.as_deref().unwrap().contains("13"));
+        // Flat counts recover to ok.
+        let t2 = a.evaluate(&[g]);
+        assert_eq!(t2.len(), 1);
+        assert_eq!(t2[0].to, AlertLevel::Ok);
     }
 }

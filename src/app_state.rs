@@ -999,6 +999,8 @@ mod tests {
                 threshold: 80.0,
                 message: format!("msg{i}"),
                 card_key: format!("GPU-{i}"),
+                reason: None,
+                xid: None,
             });
         }
         assert_eq!(state.alert_history.len(), ALERT_HISTORY_MAX);

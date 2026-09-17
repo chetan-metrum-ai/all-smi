@@ -321,6 +321,7 @@ Extended NVIDIA hardware detail metrics (NUMA topology, GSP firmware, NvLink top
 | `all_smi_gpu_nvdec_active_ratio`          | Mean NVDEC instance utilization (0.0–1.0)                                                                      | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
 | `all_smi_gpu_nvjpg_active_ratio`          | Mean NVJPG instance utilization (0.0–1.0)                                                                      | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
 | `all_smi_gpu_nvofa_active_ratio`          | Mean NVOFA instance utilization (0.0–1.0)                                                                      | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_hollow_utilization_ratio`    | Derived hollow util: `max(0, graphics_active − sm_active)`; omitted when either input is absent                | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
 
 **Label values for `all_smi_nvlink_remote_device_type`:**
 

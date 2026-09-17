@@ -809,6 +809,20 @@ fn render_gpm_metrics_row<W: Write>(stdout: &mut W, info: &GpuInfo) {
         print_colored_text(stdout, value, Color::White, None, None);
     }
 
+    // Hollow util (P3): show in red when > 0.2.
+    if let Some(hollow) = crate::metrics::gpu_readings::hollow_utilization(info)
+        && hollow > 0.2
+    {
+        if !parts.is_empty() {
+            print_colored_text(stdout, " | ", Color::DarkGrey, None, None);
+        } else {
+            print_colored_text(stdout, " ", Color::White, None, None);
+        }
+        print_colored_text(stdout, "Hollow", Color::DarkGrey, None, None);
+        print_colored_text(stdout, " ", Color::White, None, None);
+        print_colored_text(stdout, &format_ratio_pct(hollow), Color::Red, None, None);
+    }
+
     queue!(stdout, Print("\r\n")).unwrap();
 }
 

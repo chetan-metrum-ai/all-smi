@@ -108,6 +108,8 @@ async fn webhook_body_matches_expected_shape() {
         to: "crit".to_string(),
         value: 92.0,
         threshold: 90.0,
+        reason: None,
+        xid: None,
     };
     assert!(enqueue(&tx, payload.clone()));
 
@@ -124,4 +126,31 @@ async fn webhook_body_matches_expected_shape() {
     assert_eq!(got.to, payload.to);
     assert_eq!(got.value, payload.value);
     assert_eq!(got.threshold, payload.threshold);
+}
+
+#[tokio::test]
+async fn webhook_body_includes_xid_and_reason() {
+    let (url, body_rx) = spawn_capture_server().await;
+    let tx = spawn_webhook_worker(url);
+    let payload = WebhookPayload {
+        timestamp: "2026-04-20T12:34:56+00:00".to_string(),
+        host: "dgx-01".to_string(),
+        gpu_index: Some(0),
+        rule: "xid".to_string(),
+        from: "ok".to_string(),
+        to: "warn".to_string(),
+        value: 2.0,
+        threshold: 13.0,
+        reason: Some("xid=13".to_string()),
+        xid: Some(13),
+    };
+    assert!(enqueue(&tx, payload.clone()));
+    let body = timeout(Duration::from_secs(5), body_rx)
+        .await
+        .expect("server did not receive body in time")
+        .expect("oneshot dropped");
+    let got: WebhookPayload = serde_json::from_slice(&body).expect("invalid JSON body");
+    assert_eq!(got.xid, Some(13));
+    assert_eq!(got.reason.as_deref(), Some("xid=13"));
+    assert_eq!(got.rule, "xid");
 }

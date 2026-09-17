@@ -359,6 +359,18 @@ impl<'a> HardwareMetricExporter<'a> {
             "Mean NVOFA instance utilization (0.0-1.0)",
             |m| m.nvofa_active,
         );
+        // Derived hollow util (P3): graphics_active - sm_active, clamped ≥ 0.
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_hollow_utilization_ratio",
+            "Hollow utilization: graphics_active - sm_active (clamped ≥ 0); \
+             omitted when either input is unavailable",
+            |m| match (m.graphics_active, m.sm_active) {
+                (Some(g), Some(s)) => Some((g - s).max(0.0)),
+                _ => None,
+            },
+        );
     }
 
     fn export_throttle_reasons(&self, builder: &mut MetricBuilder, rows: &[Row<'a>]) {

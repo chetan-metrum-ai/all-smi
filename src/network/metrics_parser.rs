@@ -836,6 +836,13 @@ impl MetricsParser {
                     gpm.nvofa_active = Some(value as f32);
                     apply_gpm_source(gpm, labels);
                 }
+            // Derived hollow util — accepted for remote scrapes but not stored;
+            // recomputed from graphics_active / sm_active on the consumer side.
+            "gpu_hollow_utilization_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let _ = value;
+                    apply_gpm_source(ensure_gpm_metrics(gpu_info), labels);
+                }
             "gpu_throttle_reason" => {
                 let reason = labels.get("reason").map(String::as_str).unwrap_or("");
                 if let Some(partial) = ThrottleReasons::from_label(reason) {

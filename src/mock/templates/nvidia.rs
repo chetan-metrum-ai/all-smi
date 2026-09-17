@@ -36,10 +36,21 @@ use all_smi::traits::mock_generator::{
 /// older driver or a node where NVML does not expose these extended APIs.
 pub const HARDWARE_DETAILS_ENV_VAR: &str = "ALL_SMI_MOCK_HARDWARE_DETAILS";
 
+/// Force a hollow-util mock profile (high graphics / board util, low SM
+/// active) so hollow alerts fire in `view` without a live GPU harness.
+pub const HOLLOW_ENV_VAR: &str = "ALL_SMI_MOCK_HOLLOW";
+
 /// `true` when the hardware-detail mock mode is enabled via env var.
 pub fn is_hardware_details_enabled() -> bool {
     std::env::var(HARDWARE_DETAILS_ENV_VAR)
         .map(|v| !v.is_empty())
+        .unwrap_or(false)
+}
+
+/// `true` when the hollow-util mock profile is enabled.
+pub fn is_hollow_mock_enabled() -> bool {
+    std::env::var(HOLLOW_ENV_VAR)
+        .map(|v| matches!(v.as_str(), "1" | "true" | "TRUE" | "True"))
         .unwrap_or(false)
 }
 
@@ -227,18 +238,20 @@ impl NvidiaMockGenerator {
         const GSP_VERSION: &str = "550.54.15";
         const NVLINK_COUNT: u32 = 6;
         // Consistent GPM mock: tensor ≤ sm_active ≤ graphics; occupancy ≤ sm_active.
-        const GRAPHICS_ACTIVE: f32 = 0.90;
-        const SM_ACTIVE: f32 = 0.55;
-        const SM_OCCUPANCY: f32 = 0.40;
-        const TENSOR_ACTIVE: f32 = 0.25;
-        const TENSOR_HMMA: f32 = 0.20;
-        const TENSOR_IMMA: f32 = 0.02;
-        const TENSOR_DFMA: f32 = 0.01;
-        const FP64_ACTIVE: f32 = 0.00;
-        const FP32_ACTIVE: f32 = 0.30;
-        const FP16_ACTIVE: f32 = 0.15;
-        const INTEGER_ACTIVE: f32 = 0.05;
-        const MEMORY_BW_UTIL: f32 = 0.42;
+        // Hollow profile (ALL_SMI_MOCK_HOLLOW=1): high graphics, near-zero SM.
+        let hollow = is_hollow_mock_enabled();
+        let graphics_active: f32 = if hollow { 0.95 } else { 0.90 };
+        let sm_active: f32 = if hollow { 0.05 } else { 0.55 };
+        let sm_occupancy: f32 = if hollow { 0.02 } else { 0.40 };
+        let tensor_active: f32 = if hollow { 0.00 } else { 0.25 };
+        let tensor_hmma: f32 = if hollow { 0.00 } else { 0.20 };
+        let tensor_imma: f32 = if hollow { 0.00 } else { 0.02 };
+        let tensor_dfma: f32 = if hollow { 0.00 } else { 0.01 };
+        let fp64_active: f32 = 0.00;
+        let fp32_active: f32 = if hollow { 0.04 } else { 0.30 };
+        let fp16_active: f32 = if hollow { 0.00 } else { 0.15 };
+        let integer_active: f32 = if hollow { 0.01 } else { 0.05 };
+        let memory_bw_util: f32 = if hollow { 0.10 } else { 0.42 };
         const PCIE_TX: f64 = 1.2e9;
         const PCIE_RX: f64 = 3.0e8;
         const NVLINK_TX: f64 = 4.0e9;
@@ -246,6 +259,7 @@ impl NvidiaMockGenerator {
         const NVDEC_ACTIVE: f32 = 0.00;
         const NVJPG_ACTIVE: f32 = 0.00;
         const NVOFA_ACTIVE: f32 = 0.00;
+        let hollow_util = (graphics_active - sm_active).max(0.0);
 
         // --- NUMA node id ---
         template.push_str(
@@ -327,64 +341,64 @@ impl NvidiaMockGenerator {
             (
                 "all_smi_gpu_graphics_active_ratio",
                 "Graphics engine active fraction (0.0-1.0)",
-                GRAPHICS_ACTIVE as f64,
+                graphics_active as f64,
             ),
             (
                 "all_smi_gpu_sm_active_ratio",
                 "SM active fraction (0.0-1.0)",
-                SM_ACTIVE as f64,
+                sm_active as f64,
             ),
             (
                 "all_smi_gpu_sm_occupancy",
                 "GPM-reported SM occupancy fraction (0.0-1.0); \
                  omitted on devices that do not support GPM (pre-Hopper)",
-                SM_OCCUPANCY as f64,
+                sm_occupancy as f64,
             ),
             (
                 "all_smi_gpu_tensor_active_ratio",
                 "Any tensor pipe active fraction (0.0-1.0)",
-                TENSOR_ACTIVE as f64,
+                tensor_active as f64,
             ),
             (
                 "all_smi_gpu_tensor_hmma_active_ratio",
                 "HMMA tensor pipe active fraction (0.0-1.0)",
-                TENSOR_HMMA as f64,
+                tensor_hmma as f64,
             ),
             (
                 "all_smi_gpu_tensor_imma_active_ratio",
                 "IMMA tensor pipe active fraction (0.0-1.0)",
-                TENSOR_IMMA as f64,
+                tensor_imma as f64,
             ),
             (
                 "all_smi_gpu_tensor_dfma_active_ratio",
                 "DFMA tensor pipe active fraction (0.0-1.0)",
-                TENSOR_DFMA as f64,
+                tensor_dfma as f64,
             ),
             (
                 "all_smi_gpu_fp64_active_ratio",
                 "FP64 pipe active fraction (0.0-1.0)",
-                FP64_ACTIVE as f64,
+                fp64_active as f64,
             ),
             (
                 "all_smi_gpu_fp32_active_ratio",
                 "FP32 pipe active fraction (0.0-1.0)",
-                FP32_ACTIVE as f64,
+                fp32_active as f64,
             ),
             (
                 "all_smi_gpu_fp16_active_ratio",
                 "FP16 pipe active fraction (0.0-1.0)",
-                FP16_ACTIVE as f64,
+                fp16_active as f64,
             ),
             (
                 "all_smi_gpu_integer_active_ratio",
                 "Integer pipe active fraction (0.0-1.0)",
-                INTEGER_ACTIVE as f64,
+                integer_active as f64,
             ),
             (
                 "all_smi_gpu_memory_bandwidth_utilization",
                 "GPM-reported memory bandwidth utilization fraction (0.0-1.0); \
                  omitted on devices that do not support GPM (pre-Hopper)",
-                MEMORY_BW_UTIL as f64,
+                memory_bw_util as f64,
             ),
             (
                 "all_smi_gpu_pcie_tx_bytes_per_second",
@@ -421,6 +435,11 @@ impl NvidiaMockGenerator {
                 "Mean NVOFA instance utilization (0.0-1.0)",
                 NVOFA_ACTIVE as f64,
             ),
+            (
+                "all_smi_gpu_hollow_utilization_ratio",
+                "Hollow utilization: graphics_active - sm_active (clamped >= 0)",
+                hollow_util as f64,
+            ),
         ];
         for (name, help, value) in gpm_gauges {
             template.push_str(&format!("# HELP {name} {help}\n"));
@@ -435,6 +454,37 @@ impl NvidiaMockGenerator {
                 } else {
                     template.push_str(&format!("{name}{{{labels}}} {value:.2}\n"));
                 }
+            }
+        }
+
+        // Synthetic P3 alert signals when hollow mock is on (remap / throttle / XID).
+        if hollow {
+            template.push_str(
+                "# HELP all_smi_gpu_remapping_pending 1 when row remapping is pending a reset\n",
+            );
+            template.push_str("# TYPE all_smi_gpu_remapping_pending gauge\n");
+            template.push_str(
+                "# HELP all_smi_gpu_throttle_reason Active NVML throttle reason (1=active)\n",
+            );
+            template.push_str("# TYPE all_smi_gpu_throttle_reason gauge\n");
+            template.push_str(
+                "# HELP all_smi_gpu_xid_events_total Cumulative XID event count by code\n",
+            );
+            template.push_str("# TYPE all_smi_gpu_xid_events_total counter\n");
+            for (i, gpu) in gpus.iter().enumerate() {
+                let labels = format!(
+                    "gpu=\"{}\", instance=\"{}\", gpu_uuid=\"{}\", gpu_index=\"{i}\"",
+                    self.gpu_name, self.instance_name, gpu.uuid
+                );
+                template.push_str(&format!(
+                    "all_smi_gpu_remapping_pending{{{labels}}} 1\n"
+                ));
+                template.push_str(&format!(
+                    "all_smi_gpu_throttle_reason{{{labels},reason=\"sw_power_cap\"}} 1\n"
+                ));
+                template.push_str(&format!(
+                    "all_smi_gpu_xid_events_total{{{labels},xid=\"13\"}} 1\n"
+                ));
             }
         }
     }
@@ -721,9 +771,14 @@ impl MockGenerator for NvidiaMockGenerator {
 
         let gpus: Vec<GpuMetrics> = (0..config.device_count)
             .map(|_| {
+                let hollow = is_hollow_mock_enabled();
                 GpuMetrics {
                     uuid: crate::mock::metrics::gpu::generate_uuid_with_rng(&mut rng),
-                    utilization: rng.random_range(0.0..100.0),
+                    utilization: if hollow {
+                        95.0
+                    } else {
+                        rng.random_range(0.0..100.0)
+                    },
                     memory_used_bytes: rng.random_range(1_000_000_000..80_000_000_000),
                     memory_total_bytes: 85_899_345_920, // 80GB
                     temperature_celsius: rng.random_range(35..75),

@@ -161,6 +161,27 @@ fn apply_file_alerts(raw: &RawConfig, settings: &mut Settings) {
     if let Some(v) = al.power_crit_w {
         settings.alerts.power_crit_w = v;
     }
+    if let Some(v) = al.hollow_util_warn_mins {
+        settings.alerts.hollow_util_warn_mins = v;
+    }
+    if let Some(v) = al.hollow_util_warn_ratio {
+        settings.alerts.hollow_util_warn_ratio = v;
+    }
+    if let Some(v) = al.no_tensor_warn {
+        settings.alerts.no_tensor_warn = v;
+    }
+    if let Some(v) = al.memory_bound_info {
+        settings.alerts.memory_bound_info = v;
+    }
+    if let Some(v) = al.remap_pending {
+        settings.alerts.remap_pending = v;
+    }
+    if let Some(v) = al.xid {
+        settings.alerts.xid = v;
+    }
+    if let Some(v) = al.throttle_warn_mins {
+        settings.alerts.throttle_warn_mins = v;
+    }
     // `enabled` currently acts as a no-op; wire-up pending a future
     // global disable switch on the alerter.
     let _ = al.enabled;

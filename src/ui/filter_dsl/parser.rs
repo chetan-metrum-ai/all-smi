@@ -65,6 +65,7 @@ pub enum Field {
     NvlinkRx,
     Throttle,
     Throttled,
+    Hollow,
 }
 
 impl Field {
@@ -96,6 +97,7 @@ impl Field {
             "nvlink_rx" => Some(Field::NvlinkRx),
             "throttle" => Some(Field::Throttle),
             "throttled" => Some(Field::Throttled),
+            "hollow" | "hollow_util" => Some(Field::Hollow),
             _ => None,
         }
     }
@@ -124,6 +126,7 @@ impl Field {
                 | Field::NvlinkTx
                 | Field::NvlinkRx
                 | Field::Throttled
+                | Field::Hollow
         )
     }
 
@@ -155,6 +158,7 @@ impl Field {
             Field::NvlinkRx => "nvlink_rx",
             Field::Throttle => "throttle",
             Field::Throttled => "throttled",
+            Field::Hollow => "hollow",
         }
     }
 }
