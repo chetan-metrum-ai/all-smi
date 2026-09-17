@@ -11,9 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 //! `nvidia.*` checks — NVML loadability, driver version, nvidia-smi
-//! presence, MIG / vGPU / VISIBLE env knobs.
+//! presence, MIG / vGPU / VISIBLE env knobs, GPM support, and DCGM.
 
 use std::time::Duration;
 
@@ -27,6 +29,10 @@ static CHECKS: &[&Check] = &[
     &DRIVER_VERSION,
     &VISIBLE_ENV,
     &MIG_MODE,
+    &GPM_SUPPORTED,
+    &DCGM_LIBRARY,
+    &DCGM_HOSTENGINE,
+    &DCGM_PROF_MODULE,
 ];
 
 pub fn checks() -> &'static [&'static Check] {
@@ -278,5 +284,220 @@ fn check_mig(_ctx: &CheckCtx) -> CheckResult {
             Some("driver may be hung".to_string()),
         ),
         _ => CheckResult::Skip("nvidia-smi not available for MIG query".to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Deep-telemetry probes (GPM + DCGM). Missing DCGM is WARN, never FAIL —
+// Ampere/Ada hosts and developer laptops without the host engine are still
+// valid all-smi deployments. Non-NVIDIA hosts SKIP these four entirely.
+// ---------------------------------------------------------------------------
+
+static GPM_SUPPORTED: Check = Check {
+    id: "nvidia.gpm.supported",
+    title: "NVML GPM support (Hopper+)",
+    severity_on_fail: Severity::Warn,
+    run: check_gpm_supported,
+};
+
+static DCGM_LIBRARY: Check = Check {
+    id: "nvidia.dcgm.library",
+    title: "DCGM library / dcgmi binary",
+    severity_on_fail: Severity::Warn,
+    run: check_dcgm_library,
+};
+
+static DCGM_HOSTENGINE: Check = Check {
+    id: "nvidia.dcgm.hostengine",
+    title: "DCGM host engine",
+    severity_on_fail: Severity::Warn,
+    run: check_dcgm_hostengine,
+};
+
+static DCGM_PROF_MODULE: Check = Check {
+    id: "nvidia.dcgm.prof_module",
+    title: "DCGM profiling fields (SM_ACTIVE)",
+    severity_on_fail: Severity::Warn,
+    run: check_dcgm_prof_module,
+};
+
+fn check_gpm_supported(_ctx: &CheckCtx) -> CheckResult {
+    if !has_nvidia() {
+        return CheckResult::Skip(nvidia_absent_reason());
+    }
+    match nvml_wrapper::Nvml::init() {
+        Ok(nvml) => {
+            let count = match nvml.device_count() {
+                Ok(c) => c,
+                Err(e) => {
+                    return CheckResult::Skip(format!("NVML device_count failed: {e}"));
+                }
+            };
+            if count == 0 {
+                return CheckResult::Skip("NVML reports zero devices".to_string());
+            }
+            let mut any_supported = false;
+            let mut probed = 0u32;
+            for i in 0..count {
+                let Ok(device) = nvml.device_by_index(i) else {
+                    continue;
+                };
+                probed += 1;
+                if device.gpm_support().unwrap_or(false) {
+                    any_supported = true;
+                    break;
+                }
+            }
+            if probed == 0 {
+                return CheckResult::Skip("could not open any NVML device".to_string());
+            }
+            if any_supported {
+                CheckResult::Pass(format!(
+                    "GPM supported on at least one of {probed} device(s) (Hopper+)"
+                ))
+            } else {
+                CheckResult::Warn(
+                    format!(
+                        "GPM not supported on any of {probed} device(s) (pre-Hopper / Ada / Ampere)"
+                    ),
+                    Some(
+                        "fine-grained SM/tensor metrics require Hopper+ GPM or the DCGM plugin \
+                         (P4); board-level utilization still works"
+                            .to_string(),
+                    ),
+                )
+            }
+        }
+        Err(e) => CheckResult::Skip(format!("NVML init failed: {e}")),
+    }
+}
+
+fn check_dcgm_library(_ctx: &CheckCtx) -> CheckResult {
+    if !has_nvidia() {
+        return CheckResult::Skip(nvidia_absent_reason());
+    }
+    let dcgmi = which("dcgmi");
+    let lib_present = [
+        "/usr/lib/x86_64-linux-gnu/libdcgm.so.4",
+        "/usr/lib/x86_64-linux-gnu/libdcgm.so",
+        "/usr/lib64/libdcgm.so.4",
+        "/usr/lib64/libdcgm.so",
+    ]
+    .iter()
+    .any(|p| std::path::Path::new(p).exists())
+        || std::path::Path::new("/usr/lib/x86_64-linux-gnu")
+            .read_dir()
+            .ok()
+            .into_iter()
+            .flatten()
+            .flatten()
+            .any(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .starts_with("libdcgm.so")
+            });
+
+    match (dcgmi, lib_present) {
+        (Some(path), true) => CheckResult::Pass(format!("dcgmi at {path}; libdcgm present")),
+        (Some(path), false) => CheckResult::Warn(
+            format!("dcgmi at {path} but libdcgm.so* not found in common paths"),
+            Some(
+                "install datacenter-gpu-manager matching the image CUDA (e.g. \
+                 datacenter-gpu-manager-4-cuda12)"
+                    .to_string(),
+            ),
+        ),
+        (None, true) => CheckResult::Warn(
+            "libdcgm present but dcgmi not on PATH".to_string(),
+            Some("install the datacenter-gpu-manager package that provides dcgmi".to_string()),
+        ),
+        (None, false) => CheckResult::Warn(
+            "DCGM library and dcgmi binary not found".to_string(),
+            Some(
+                "install datacenter-gpu-manager and enable nvidia-dcgm; deep-telemetry \
+                 DCGM fallback (P4) needs them. Filter with --only nvidia.dcgm"
+                    .to_string(),
+            ),
+        ),
+    }
+}
+
+fn check_dcgm_hostengine(_ctx: &CheckCtx) -> CheckResult {
+    if !has_nvidia() {
+        return CheckResult::Skip(nvidia_absent_reason());
+    }
+    if which("dcgmi").is_none() {
+        return CheckResult::Warn(
+            "dcgmi not on PATH; cannot probe host engine".to_string(),
+            Some("install datacenter-gpu-manager; then systemctl enable --now nvidia-dcgm".to_string()),
+        );
+    }
+    match try_exec("dcgmi", &["discovery", "-l"], Duration::from_millis(5_000)) {
+        Some(out) if out.success() => {
+            let summary = out
+                .stdout
+                .lines()
+                .next()
+                .unwrap_or("dcgmi discovery ok")
+                .trim();
+            CheckResult::Pass(format!("host engine reachable: {summary}"))
+        }
+        Some(out) if out.timed_out => CheckResult::Warn(
+            "dcgmi discovery -l timed out".to_string(),
+            Some("check `systemctl status nvidia-dcgm`".to_string()),
+        ),
+        Some(out) => CheckResult::Warn(
+            format!(
+                "dcgmi discovery -l failed (status {}): {}",
+                out.status,
+                out.stderr.trim()
+            ),
+            Some("systemctl enable --now nvidia-dcgm".to_string()),
+        ),
+        None => CheckResult::Warn(
+            "dcgmi could not be launched".to_string(),
+            Some("reinstall datacenter-gpu-manager".to_string()),
+        ),
+    }
+}
+
+fn check_dcgm_prof_module(_ctx: &CheckCtx) -> CheckResult {
+    if !has_nvidia() {
+        return CheckResult::Skip(nvidia_absent_reason());
+    }
+    if which("dcgmi").is_none() {
+        return CheckResult::Warn(
+            "dcgmi not on PATH; cannot probe PROF fields".to_string(),
+            Some("install datacenter-gpu-manager".to_string()),
+        );
+    }
+    // Field 1002 = SM_ACTIVE — the profiling module must be loaded for this.
+    match try_exec(
+        "dcgmi",
+        &["dmon", "-e", "1002", "-c", "1"],
+        Duration::from_millis(8_000),
+    ) {
+        Some(out) if out.success() => {
+            CheckResult::Pass("dcgmi dmon -e 1002 succeeded (profiling module usable)".to_string())
+        }
+        Some(out) if out.timed_out => CheckResult::Warn(
+            "dcgmi dmon -e 1002 timed out".to_string(),
+            Some("host engine may be stuck; restart nvidia-dcgm".to_string()),
+        ),
+        Some(out) => CheckResult::Warn(
+            format!(
+                "dcgmi dmon -e 1002 failed (status {}): {}",
+                out.status,
+                out.stderr.trim()
+            ),
+            Some(
+                "ensure nvidia-dcgm is running and the GPU supports DCGM PROF_* fields"
+                    .to_string(),
+            ),
+        ),
+        None => CheckResult::Warn(
+            "dcgmi could not be launched".to_string(),
+            Some("reinstall datacenter-gpu-manager".to_string()),
+        ),
     }
 }

@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 //! Recursive-descent parser for the filter DSL.
 //!
@@ -53,6 +55,14 @@ pub enum Field {
     Pstate,
     Numa,
     DeviceType,
+    SmActive,
+    SmOccupancy,
+    TensorActive,
+    DramActive,
+    PcieTx,
+    PcieRx,
+    NvlinkTx,
+    NvlinkRx,
 }
 
 impl Field {
@@ -74,6 +84,14 @@ impl Field {
             "pstate" | "performance_state" => Some(Field::Pstate),
             "numa" | "numa_node" => Some(Field::Numa),
             "device_type" | "type" => Some(Field::DeviceType),
+            "sm_active" => Some(Field::SmActive),
+            "sm_occupancy" | "occupancy" => Some(Field::SmOccupancy),
+            "tensor_active" | "tensor" => Some(Field::TensorActive),
+            "dram_active" | "dram" | "mem_bw" => Some(Field::DramActive),
+            "pcie_tx" => Some(Field::PcieTx),
+            "pcie_rx" => Some(Field::PcieRx),
+            "nvlink_tx" => Some(Field::NvlinkTx),
+            "nvlink_rx" => Some(Field::NvlinkRx),
             _ => None,
         }
     }
@@ -93,6 +111,14 @@ impl Field {
                 | Field::Index
                 | Field::Pstate
                 | Field::Numa
+                | Field::SmActive
+                | Field::SmOccupancy
+                | Field::TensorActive
+                | Field::DramActive
+                | Field::PcieTx
+                | Field::PcieRx
+                | Field::NvlinkTx
+                | Field::NvlinkRx
         )
     }
 
@@ -114,6 +140,14 @@ impl Field {
             Field::Pstate => "pstate",
             Field::Numa => "numa",
             Field::DeviceType => "device_type",
+            Field::SmActive => "sm_active",
+            Field::SmOccupancy => "sm_occupancy",
+            Field::TensorActive => "tensor_active",
+            Field::DramActive => "dram_active",
+            Field::PcieTx => "pcie_tx",
+            Field::PcieRx => "pcie_rx",
+            Field::NvlinkTx => "nvlink_tx",
+            Field::NvlinkRx => "nvlink_rx",
         }
     }
 }

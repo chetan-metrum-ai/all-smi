@@ -1,0 +1,11 @@
+=== gpm_parity (ALL_SMI_LIVE_GPU=1) ===
+    Finished `release` profile [optimized] target(s) in 0.34s
+     Running tests/gpm_parity.rs (target/release/deps/gpm_parity-6ed843df9cc44139)
+
+running 2 tests
+test gpm_parity_skips_without_live_flag ... ok
+test gpm_parity_live_against_captures ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+no TECHNICAL_REPORTS/runs/*/parity directory; run scripts/dev/parity.sh first

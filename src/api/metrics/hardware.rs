@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 //! Prometheus exporter for NVIDIA hardware-detail metrics (issue #132).
 //!
@@ -29,10 +31,18 @@
 //! * `all_smi_nvlink_remote_device_type` (gauge, label-only): one row per
 //!   active NvLink carrying `link_index` and `remote_type` labels with a
 //!   constant value of 1. Empty when no NvLinks are active.
-//! * `all_smi_gpu_sm_occupancy` (gauge, 0-1): fractional SM occupancy from
-//!   the GPM API. Absent when GPM is not supported.
-//! * `all_smi_gpu_memory_bandwidth_utilization` (gauge, 0-1): fractional
-//!   DRAM bandwidth utilization from the GPM API. Absent when unsupported.
+//! * GPM family (Hopper+ / DCGM fallback), each with a `source` label
+//!   (`gpm` | `dcgm` | `dcgmi` | `amd`):
+//!   - `all_smi_gpu_graphics_active_ratio`
+//!   - `all_smi_gpu_sm_active_ratio`
+//!   - `all_smi_gpu_sm_occupancy`
+//!   - `all_smi_gpu_tensor_active_ratio` (+ hmma / imma / dfma)
+//!   - `all_smi_gpu_fp64_active_ratio` / `fp32` / `fp16`
+//!   - `all_smi_gpu_integer_active_ratio`
+//!   - `all_smi_gpu_memory_bandwidth_utilization`
+//!   - `all_smi_gpu_pcie_{tx,rx}_bytes_per_second`
+//!   - `all_smi_gpu_nvlink_{tx,rx}_bytes_per_second`
+//!   - `all_smi_gpu_nvdec_active_ratio` / `nvjpg` / `nvofa`
 //!
 //! All metrics carry the standard GPU label set (`gpu`, `instance`, `gpu_uuid`,
 //! `gpu_index`), matching the core `all_smi_gpu_temperature_celsius` series so
@@ -44,6 +54,7 @@
 
 use super::{MetricBuilder, MetricExporter};
 use crate::device::GpuInfo;
+use crate::device::types::{GpmMetrics, TelemetrySource};
 
 /// Hardware-detail exporter.
 ///
@@ -209,46 +220,220 @@ impl<'a> HardwareMetricExporter<'a> {
     }
 
     fn export_gpm_metrics(&self, builder: &mut MetricBuilder, rows: &[Row<'a>]) {
-        // Only emit the gauges when the underlying reader surfaced a
-        // numeric value. Presence of a `GpmMetrics` struct without any
-        // populated field (the reader's "GPM-capable, not yet sampled"
-        // state) should produce no output so dashboards can't confuse it
-        // with a real zero reading.
-        let mut emitted_sm_header = false;
-        let mut emitted_mem_header = false;
-        for row in rows {
-            let Some(ref metrics) = row.gpu.gpm_metrics else {
-                continue;
-            };
-            if let Some(sm) = metrics.sm_occupancy {
-                if !emitted_sm_header {
-                    builder
-                        .help(
-                            "all_smi_gpu_sm_occupancy",
-                            "GPM-reported SM occupancy fraction (0.0-1.0); omitted on devices \
-                             that do not support GPM (pre-Hopper)",
-                        )
-                        .type_("all_smi_gpu_sm_occupancy", "gauge");
-                    emitted_sm_header = true;
-                }
-                let labels = Self::base_labels(row);
-                builder.metric("all_smi_gpu_sm_occupancy", &labels, sm);
-            }
-            if let Some(mem) = metrics.memory_bandwidth_utilization {
-                if !emitted_mem_header {
-                    builder
-                        .help(
-                            "all_smi_gpu_memory_bandwidth_utilization",
-                            "GPM-reported memory bandwidth utilization fraction (0.0-1.0); \
-                             omitted on devices that do not support GPM (pre-Hopper)",
-                        )
-                        .type_("all_smi_gpu_memory_bandwidth_utilization", "gauge");
-                    emitted_mem_header = true;
-                }
-                let labels = Self::base_labels(row);
-                builder.metric("all_smi_gpu_memory_bandwidth_utilization", &labels, mem);
-            }
+        // Only emit gauges when the underlying reader surfaced a numeric
+        // value. Presence of a `GpmMetrics` struct without any populated
+        // field (first poll / handshake incomplete) must produce no output
+        // so dashboards cannot confuse it with a real zero reading.
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_graphics_active_ratio",
+            "Graphics engine active fraction (0.0-1.0); aligns with nvidia-smi GPU-Util",
+            |m| m.graphics_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_sm_active_ratio",
+            "SM active fraction (0.0-1.0); DCGM field 1002",
+            |m| m.sm_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_sm_occupancy",
+            "GPM-reported SM occupancy fraction (0.0-1.0); omitted on devices \
+             that do not support GPM (pre-Hopper)",
+            |m| m.sm_occupancy,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_tensor_active_ratio",
+            "Any tensor pipe active fraction (0.0-1.0); DCGM field 1004",
+            |m| m.tensor_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_tensor_hmma_active_ratio",
+            "HMMA tensor pipe active fraction (0.0-1.0)",
+            |m| m.tensor_hmma_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_tensor_imma_active_ratio",
+            "IMMA tensor pipe active fraction (0.0-1.0)",
+            |m| m.tensor_imma_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_tensor_dfma_active_ratio",
+            "DFMA tensor pipe active fraction (0.0-1.0)",
+            |m| m.tensor_dfma_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_fp64_active_ratio",
+            "FP64 pipe active fraction (0.0-1.0); DCGM field 1006",
+            |m| m.fp64_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_fp32_active_ratio",
+            "FP32 pipe active fraction (0.0-1.0); DCGM field 1007",
+            |m| m.fp32_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_fp16_active_ratio",
+            "FP16 pipe active fraction (0.0-1.0); DCGM field 1008",
+            |m| m.fp16_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_integer_active_ratio",
+            "Integer pipe active fraction (0.0-1.0)",
+            |m| m.integer_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_memory_bandwidth_utilization",
+            "GPM-reported memory bandwidth utilization fraction (0.0-1.0); \
+             omitted on devices that do not support GPM (pre-Hopper)",
+            |m| m.memory_bandwidth_utilization,
+        );
+        emit_gpm_rate(
+            builder,
+            rows,
+            "all_smi_gpu_pcie_tx_bytes_per_second",
+            "PCIe transmit throughput in bytes/sec; DCGM field 1009",
+            |m| m.pcie_tx_bytes_per_sec,
+        );
+        emit_gpm_rate(
+            builder,
+            rows,
+            "all_smi_gpu_pcie_rx_bytes_per_second",
+            "PCIe receive throughput in bytes/sec; DCGM field 1010",
+            |m| m.pcie_rx_bytes_per_sec,
+        );
+        emit_gpm_rate(
+            builder,
+            rows,
+            "all_smi_gpu_nvlink_tx_bytes_per_second",
+            "NVLink transmit throughput in bytes/sec (total); DCGM field 1011",
+            |m| m.nvlink_tx_bytes_per_sec,
+        );
+        emit_gpm_rate(
+            builder,
+            rows,
+            "all_smi_gpu_nvlink_rx_bytes_per_second",
+            "NVLink receive throughput in bytes/sec (total); DCGM field 1012",
+            |m| m.nvlink_rx_bytes_per_sec,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_nvdec_active_ratio",
+            "Mean NVDEC instance utilization (0.0-1.0)",
+            |m| m.nvdec_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_nvjpg_active_ratio",
+            "Mean NVJPG instance utilization (0.0-1.0)",
+            |m| m.nvjpg_active,
+        );
+        emit_gpm_ratio(
+            builder,
+            rows,
+            "all_smi_gpu_nvofa_active_ratio",
+            "Mean NVOFA instance utilization (0.0-1.0)",
+            |m| m.nvofa_active,
+        );
+    }
+}
+
+fn gpm_source_label(metrics: &GpmMetrics) -> &'static str {
+    metrics
+        .source
+        .unwrap_or(TelemetrySource::Gpm)
+        .as_label()
+}
+
+fn emit_gpm_ratio<'a, F>(
+    builder: &mut MetricBuilder,
+    rows: &[Row<'a>],
+    name: &str,
+    help: &str,
+    getter: F,
+) where
+    F: Fn(&GpmMetrics) -> Option<f32>,
+{
+    let mut emitted_header = false;
+    for row in rows {
+        let Some(ref metrics) = row.gpu.gpm_metrics else {
+            continue;
+        };
+        let Some(value) = getter(metrics) else {
+            continue;
+        };
+        if !emitted_header {
+            builder.help(name, help).type_(name, "gauge");
+            emitted_header = true;
         }
+        let base = HardwareMetricExporter::base_labels(row);
+        let source = gpm_source_label(metrics);
+        let labels = [
+            base[0],
+            base[1],
+            base[2],
+            base[3],
+            ("source", source),
+        ];
+        builder.metric(name, &labels, value);
+    }
+}
+
+fn emit_gpm_rate<'a, F>(
+    builder: &mut MetricBuilder,
+    rows: &[Row<'a>],
+    name: &str,
+    help: &str,
+    getter: F,
+) where
+    F: Fn(&GpmMetrics) -> Option<f64>,
+{
+    let mut emitted_header = false;
+    for row in rows {
+        let Some(ref metrics) = row.gpu.gpm_metrics else {
+            continue;
+        };
+        let Some(value) = getter(metrics) else {
+            continue;
+        };
+        if !emitted_header {
+            builder.help(name, help).type_(name, "gauge");
+            emitted_header = true;
+        }
+        let base = HardwareMetricExporter::base_labels(row);
+        let source = gpm_source_label(metrics);
+        let labels = [
+            base[0],
+            base[1],
+            base[2],
+            base[3],
+            ("source", source),
+        ];
+        builder.metric(name, &labels, value);
     }
 }
 
@@ -337,6 +522,8 @@ mod tests {
             gpm_metrics: Some(GpmMetrics {
                 sm_occupancy: Some(0.67),
                 memory_bandwidth_utilization: Some(0.42),
+                source: Some(TelemetrySource::Gpm),
+                ..Default::default()
             }),
             detail: HashMap::new(),
         }
@@ -438,6 +625,10 @@ mod tests {
         let out = HardwareMetricExporter::new(&gpus).export_metrics();
         assert!(out.contains("all_smi_gpu_sm_occupancy{"));
         assert!(out.contains("all_smi_gpu_memory_bandwidth_utilization{"));
+        assert!(
+            out.contains(r#"source="gpm""#),
+            "GPM series must carry source label:\n{out}"
+        );
     }
 
     #[test]
@@ -452,9 +643,7 @@ mod tests {
 
     #[test]
     fn gpm_supported_but_unsampled_emits_nothing_for_gpm_values() {
-        // Reader emits `Some(GpmMetrics::default())` on Hopper+ until the
-        // two-sample handshake lands. The exporter MUST NOT publish that
-        // as zeros — presence without fields should be silent.
+        // First poll / empty snapshot must not publish zeros.
         let mut gpu = make_nvidia_gpu();
         gpu.gpm_metrics = Some(GpmMetrics::default());
         let gpus = vec![gpu];
@@ -467,6 +656,51 @@ mod tests {
             !out.contains("all_smi_gpu_memory_bandwidth_utilization"),
             "unsampled GPM must not emit zero:\n{out}"
         );
+        assert!(
+            !out.contains("all_smi_gpu_sm_active_ratio"),
+            "unsampled GPM must not emit zero:\n{out}"
+        );
+    }
+
+    #[test]
+    fn emits_full_gpm_field_set() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.gpm_metrics = Some(GpmMetrics {
+            graphics_active: Some(0.90),
+            sm_active: Some(0.10),
+            sm_occupancy: Some(0.05),
+            tensor_active: Some(0.02),
+            tensor_hmma_active: Some(0.01),
+            tensor_imma_active: Some(0.0),
+            tensor_dfma_active: Some(0.0),
+            fp64_active: Some(0.0),
+            fp32_active: Some(0.08),
+            fp16_active: Some(0.01),
+            integer_active: Some(0.0),
+            memory_bandwidth_utilization: Some(0.20),
+            pcie_tx_bytes_per_sec: Some(1.2e9),
+            pcie_rx_bytes_per_sec: Some(3.0e8),
+            nvlink_tx_bytes_per_sec: Some(4.0e9),
+            nvlink_rx_bytes_per_sec: Some(4.1e9),
+            nvdec_active: Some(0.0),
+            nvjpg_active: Some(0.0),
+            nvofa_active: Some(0.0),
+            source: Some(TelemetrySource::Gpm),
+        });
+        let out = HardwareMetricExporter::new(&[gpu]).export_metrics();
+        for name in [
+            "all_smi_gpu_graphics_active_ratio",
+            "all_smi_gpu_sm_active_ratio",
+            "all_smi_gpu_tensor_active_ratio",
+            "all_smi_gpu_pcie_tx_bytes_per_second",
+            "all_smi_gpu_nvlink_rx_bytes_per_second",
+            "all_smi_gpu_nvdec_active_ratio",
+        ] {
+            assert!(
+                out.contains(&format!("{name}{{")),
+                "missing {name} in:\n{out}"
+            );
+        }
     }
 
     #[test]

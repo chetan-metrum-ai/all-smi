@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
+
 # Developer Documentation
 
 This guide provides comprehensive information for developers and contributors working on all-smi.
@@ -15,6 +17,7 @@ This guide provides comprehensive information for developers and contributors wo
 - [Platform-Specific Development](#platform-specific-development)
 - [Contributing Guidelines](#contributing-guidelines)
 - [Debugging Tips](#debugging-tips)
+- [Metrum fork releases](#metrum-fork-releases)
 
 ## Development Environment Setup
 
@@ -630,6 +633,24 @@ valgrind --leak-check=full target/release/all-smi
 # Using leaks (macOS)
 leaks --atExit -- target/release/all-smi
 ```
+
+## Metrum fork releases
+
+Downloadable binaries for the Metrum deep-telemetry fork are built by
+[`.github/workflows/metrum-release.yml`](.github/workflows/metrum-release.yml)
+on GitHub-hosted runners only (linux x86_64 gnu/musl, linux aarch64, macos
+aarch64 unsigned). Assets land on
+https://github.com/chetan-metrum-ai/all-smi/releases under tags like
+`v0.26.3-metrum.1`. Prefer `all-smi-linux-x86_64.tar.gz` on GPU servers.
+
+Do not use the upstream `release.yml` on this fork: it requires self-hosted
+Windows/Intel-Mac runners, Apple notarization secrets, and Homebrew/PPA jobs
+that are not available here. Do not publish a Metrum tag until after P4
+(real GPM + DCGM plugin). After that tag, smoke the tarball on a GPU box and
+on a no-GPU host (doctor NVIDIA/GPM/DCGM checks SKIP; CPU/memory still work).
+
+Deep-telemetry GPU work uses Shadeform (`scripts/dev/shadeform.py`); compile
+and live tests run on that instance, not on a local nucbox.
 
 ## Additional Resources
 

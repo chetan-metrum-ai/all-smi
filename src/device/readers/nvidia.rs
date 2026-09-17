@@ -11,14 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 use crate::device::GpuReader;
 use crate::device::common::constants::BYTES_PER_MB;
 use crate::device::common::{execute_command_default, parse_csv_line};
 use crate::device::process_list::{get_all_processes, merge_gpu_processes};
 use crate::device::readers::common_cache::{DetailBuilder, DeviceStaticInfo, MAX_DEVICES};
+use crate::device::readers::nvidia_gpm::GpmState;
 use crate::device::readers::nvidia_hardware::{
-    HardwareDetailCache, collect_gpm_metrics, collect_nvlink_remote_devices,
+    HardwareDetailCache, collect_nvlink_remote_devices,
 };
 use crate::device::readers::nvidia_mig::collect_mig_info;
 use crate::device::readers::nvidia_vgpu::collect_vgpu_info;
@@ -79,6 +82,8 @@ pub struct NvidiaGpuReader {
     /// call that observes any supported value, following the same "don't
     /// cache an all-empty snapshot" policy as [`Self::thermal_thresholds`].
     hardware_details: HardwareDetailCache,
+    /// Previous GPM sample handles per GPU UUID for the two-sample handshake.
+    gpm_state: GpmState,
 }
 
 /// Map the NVML [`PerformanceState`] enum to the integer used by the
@@ -123,6 +128,7 @@ impl NvidiaGpuReader {
             nvml: Mutex::new(Nvml::init().ok()),
             thermal_thresholds: Mutex::new(HashMap::new()),
             hardware_details: HardwareDetailCache::new(),
+            gpm_state: GpmState::new(),
         }
     }
 
@@ -209,7 +215,8 @@ impl NvidiaGpuReader {
             if nvml.device_count().is_ok() {
                 return Ok(f(nvml));
             }
-            // Handle is stale, drop and reinitialize below
+            // Handle is stale — abandon GPM samples that belonged to it.
+            self.gpm_state.abandon();
         }
         // Initialize or reinitialize
         match Nvml::init() {
@@ -306,11 +313,10 @@ impl NvidiaGpuReader {
                     // Active NvLinks are queried every poll — link state
                     // can change at runtime if a cable is disconnected.
                     let nvlink_remote_devices = collect_nvlink_remote_devices(nvml, &device);
-                    // GPM metrics are opt-in (Hopper+). `collect_gpm_metrics`
-                    // returns `None` everywhere else and a populated-but-empty
-                    // snapshot on supported hardware (full two-sample
-                    // implementation deferred to a follow-up).
-                    let gpm_metrics = collect_gpm_metrics(&device);
+                    // GPM two-sample path (Hopper+). First poll returns
+                    // `None`; later polls fill ratios/rates. Disabled via
+                    // ALL_SMI_NVIDIA_DISABLE_GPM=1.
+                    let gpm_metrics = self.gpm_state.collect(nvml, &device);
 
                     let info = GpuInfo {
                         uuid: device.uuid().unwrap_or_else(|_| format!("GPU-{i}")),
@@ -525,6 +531,16 @@ pub fn get_nvml_status_message() -> Option<String> {
     match NVML_STATUS.lock() {
         Ok(status) => status.clone(),
         _ => None,
+    }
+}
+
+impl Drop for NvidiaGpuReader {
+    fn drop(&mut self) {
+        // Free cached GPM samples while the NVML library is still alive.
+        match self.nvml.get_mut() {
+            Ok(Some(nvml)) => self.gpm_state.free_all(nvml),
+            _ => self.gpm_state.abandon(),
+        }
     }
 }
 

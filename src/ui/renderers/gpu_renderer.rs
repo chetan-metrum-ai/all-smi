@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -99,10 +101,13 @@ pub fn gpu_render_line_count_with_lookup(
     }
 
     // Optional hardware-details row (issue #132). Rendered when NUMA,
-    // GSP firmware, or NvLink topology is present. GPM metrics are shown
-    // only inline on the same row if NUMA/GSP/NvLink is also present, so
-    // they don't by themselves trigger the row.
+    // GSP firmware, or NvLink topology is present.
     if gpu_has_hardware_details_row(gpu) {
+        lines += 1;
+    }
+
+    // Optional GPM activity row (Hopper+ / remote scrape with GPM gauges).
+    if gpu_has_gpm_row(gpu) {
         lines += 1;
     }
 
@@ -415,6 +420,11 @@ pub fn print_gpu_info<W: Write>(
     // reported. Uses the shared SUB_ITEM_INDENT like the thermal row above.
     render_hardware_details_row(stdout, info);
 
+    // Optional quaternary row: GPM activity (Hopper+). Separate from the
+    // topology/firmware HW row so operators can read SM/tensor/DRAM at a
+    // glance even when NUMA/NvLink data is absent (e.g. remote scrapes).
+    render_gpm_metrics_row(stdout, info);
+
     // Calculate gauge widths with 5 char padding on each side and 2 space separation
     let available_width = width.saturating_sub(10); // 5 padding each side
     let is_apple_silicon = info.name.contains("Apple") || info.name.contains("Metal");
@@ -624,13 +634,25 @@ fn render_thermal_pstate_row<W: Write>(stdout: &mut W, info: &GpuInfo) {
 
 /// Return true when a GPU carries at least one hardware-detail field that
 /// the TUI cares about surfacing: NUMA node, GSP firmware mode/version,
-/// or NvLink topology. GPM metrics alone do NOT trigger the row since
-/// they render alongside the other details when present.
+/// or NvLink topology. GPM metrics render on their own dedicated row.
 fn gpu_has_hardware_details_row(gpu: &GpuInfo) -> bool {
     gpu.numa_node_id.is_some()
         || gpu.gsp_firmware_mode.is_some()
         || gpu.gsp_firmware_version.is_some()
         || !gpu.nvlink_remote_devices.is_empty()
+}
+
+fn gpu_has_gpm_row(gpu: &GpuInfo) -> bool {
+    let Some(ref gpm) = gpu.gpm_metrics else {
+        return false;
+    };
+    gpm.sm_active.is_some()
+        || gpm.sm_occupancy.is_some()
+        || gpm.tensor_active.is_some()
+        || gpm.memory_bandwidth_utilization.is_some()
+        || gpm.graphics_active.is_some()
+        || gpm.pcie_tx_bytes_per_sec.is_some()
+        || gpm.pcie_rx_bytes_per_sec.is_some()
 }
 
 /// Human-readable label for the GSP firmware mode gauge, used in the TUI
@@ -647,21 +669,13 @@ fn gsp_firmware_mode_label(code: u8) -> &'static str {
 
 /// Render the compact hardware-details row beneath a GPU (issue #132).
 ///
-/// Example output (trailing spaces / ANSI colour codes omitted for
-/// readability):
-///
-/// ```text
-///      HW  NUMA:0  GSP:enabled v550.54.15  NVLink:6x(gpu=5,sw=1)  GPM:SM=0.67 MemBW=0.42
-/// ```
-///
-/// No-op when none of the issue-#132 fields are populated, so non-NVIDIA
-/// rows and older drivers keep their historical layout.
+/// Example:
+/// `     HW  NUMA:0  GSP:enabled v550.54.15  NVLink:6x(gpu=5,sw=1)`
 fn render_hardware_details_row<W: Write>(stdout: &mut W, info: &GpuInfo) {
     if !gpu_has_hardware_details_row(info) {
         return;
     }
 
-    // Indent aligns with the other secondary rows.
     print_colored_text(stdout, SUB_ITEM_INDENT, Color::White, None, None);
     print_colored_text(stdout, "HW", Color::DarkMagenta, None, None);
 
@@ -681,9 +695,6 @@ fn render_hardware_details_row<W: Write>(stdout: &mut W, info: &GpuInfo) {
         );
     }
     if let Some(ref version) = info.gsp_firmware_version {
-        // Terse prefix to signal "firmware version" without stealing a
-        // whole column. The value is rendered in parentheses when the
-        // mode is also shown to visually group the two.
         print_colored_text(stdout, " v", Color::DarkGrey, None, None);
         print_colored_text(stdout, version, Color::White, None, None);
     }
@@ -693,8 +704,6 @@ fn render_hardware_details_row<W: Write>(stdout: &mut W, info: &GpuInfo) {
         let (gpu_count, switch_count, ibmnpu_count, unknown_count) =
             count_nvlink_remote_types(&info.nvlink_remote_devices);
         print_colored_text(stdout, " NVLink:", Color::DarkCyan, None, None);
-        // Summary: "6x(gpu=5,sw=1)" — compact and still machine-parseable
-        // if someone wants to grep.
         let mut parts: Vec<String> = Vec::with_capacity(4);
         if gpu_count > 0 {
             parts.push(format!("gpu={gpu_count}"));
@@ -716,25 +725,70 @@ fn render_hardware_details_row<W: Write>(stdout: &mut W, info: &GpuInfo) {
         print_colored_text(stdout, &summary, Color::White, None, None);
     }
 
-    // GPM metrics render last so they appear after the topology info.
-    // Only surfaces when at least one scalar is populated — a supported-
-    // but-unsampled snapshot (`Some(GpmMetrics::default())`) produces
-    // nothing so the TUI never shows stale zeros.
-    if let Some(ref gpm) = info.gpm_metrics
-        && (gpm.sm_occupancy.is_some() || gpm.memory_bandwidth_utilization.is_some())
-    {
-        print_colored_text(stdout, " GPM:", Color::DarkBlue, None, None);
-        if let Some(sm) = gpm.sm_occupancy {
-            print_colored_text(stdout, "SM=", Color::DarkGrey, None, None);
-            print_colored_text(stdout, &format!("{sm:.2}"), Color::White, None, None);
+    queue!(stdout, Print("\r\n")).unwrap();
+}
+
+fn format_ratio_pct(ratio: f32) -> String {
+    format!("{:.1}%", ratio * 100.0)
+}
+
+fn format_bytes_per_sec(bytes: f64) -> String {
+    const G: f64 = 1_000_000_000.0;
+    const M: f64 = 1_000_000.0;
+    if bytes >= G {
+        format!("{:.1}G", bytes / G)
+    } else if bytes >= M {
+        format!("{:.1}M", bytes / M)
+    } else {
+        format!("{bytes:.0}")
+    }
+}
+
+/// Render the GPM activity row:
+/// `SMact 0.8% | Occ 0.3% | Tensor 0% | DRAM 2% | PCIe 1.2G/0.3G`.
+fn render_gpm_metrics_row<W: Write>(stdout: &mut W, info: &GpuInfo) {
+    if !gpu_has_gpm_row(info) {
+        return;
+    }
+    let gpm = info.gpm_metrics.as_ref().expect("checked above");
+
+    print_colored_text(stdout, SUB_ITEM_INDENT, Color::White, None, None);
+    print_colored_text(stdout, "GPM", Color::DarkBlue, None, None);
+
+    let mut parts: Vec<(String, String)> = Vec::new();
+    if let Some(v) = gpm.sm_active.or(gpm.graphics_active) {
+        parts.push(("SMact".into(), format_ratio_pct(v)));
+    }
+    if let Some(v) = gpm.sm_occupancy {
+        parts.push(("Occ".into(), format_ratio_pct(v)));
+    }
+    if let Some(v) = gpm.tensor_active {
+        parts.push(("Tensor".into(), format_ratio_pct(v)));
+    }
+    if let Some(v) = gpm.memory_bandwidth_utilization {
+        parts.push(("DRAM".into(), format_ratio_pct(v)));
+    }
+    if gpm.pcie_tx_bytes_per_sec.is_some() || gpm.pcie_rx_bytes_per_sec.is_some() {
+        let tx = gpm
+            .pcie_tx_bytes_per_sec
+            .map(format_bytes_per_sec)
+            .unwrap_or_else(|| "-".into());
+        let rx = gpm
+            .pcie_rx_bytes_per_sec
+            .map(format_bytes_per_sec)
+            .unwrap_or_else(|| "-".into());
+        parts.push(("PCIe".into(), format!("{tx}/{rx}")));
+    }
+
+    for (i, (label, value)) in parts.iter().enumerate() {
+        if i > 0 {
+            print_colored_text(stdout, " | ", Color::DarkGrey, None, None);
+        } else {
+            print_colored_text(stdout, " ", Color::White, None, None);
         }
-        if let Some(mem) = gpm.memory_bandwidth_utilization {
-            if gpm.sm_occupancy.is_some() {
-                print_colored_text(stdout, " ", Color::White, None, None);
-            }
-            print_colored_text(stdout, "MemBW=", Color::DarkGrey, None, None);
-            print_colored_text(stdout, &format!("{mem:.2}"), Color::White, None, None);
-        }
+        print_colored_text(stdout, label, Color::DarkGrey, None, None);
+        print_colored_text(stdout, " ", Color::White, None, None);
+        print_colored_text(stdout, value, Color::White, None, None);
     }
 
     queue!(stdout, Print("\r\n")).unwrap();
@@ -748,6 +802,7 @@ fn render_hardware_details_row<W: Write>(stdout: &mut W, info: &GpuInfo) {
 pub(crate) fn print_gpu_diagnostic_rows<W: Write>(stdout: &mut W, info: &GpuInfo) {
     render_thermal_pstate_row(stdout, info);
     render_hardware_details_row(stdout, info);
+    render_gpm_metrics_row(stdout, info);
 }
 
 /// Tally NvLinks by remote-type classification for the summary column.
@@ -1581,18 +1636,17 @@ mod tests {
 
     #[test]
     fn hw_row_omits_gpm_when_only_support_probe_populated() {
-        // Reader emits `Some(GpmMetrics::default())` on Hopper+ until the
-        // two-sample handshake lands. Until then the TUI must not show
-        // "GPM:" at all — a zero reading would be misleading.
+        // Empty GPM snapshot must not show a GPM row.
         use crate::device::GpmMetrics;
         let mut gpu = bare_gpu();
         gpu.numa_node_id = Some(0);
         gpu.gpm_metrics = Some(GpmMetrics::default());
         let mut buf: Vec<u8> = Vec::new();
         render_hardware_details_row(&mut buf, &gpu);
+        render_gpm_metrics_row(&mut buf, &gpu);
         let rendered = String::from_utf8(buf).expect("valid utf-8");
         assert!(
-            !rendered.contains("GPM:"),
+            !rendered.contains("GPM"),
             "GPM label should be hidden when no values sampled: {rendered}"
         );
     }
@@ -1603,15 +1657,23 @@ mod tests {
         let mut gpu = bare_gpu();
         gpu.numa_node_id = Some(0);
         gpu.gpm_metrics = Some(GpmMetrics {
-            sm_occupancy: Some(0.67),
-            memory_bandwidth_utilization: Some(0.42),
+            sm_active: Some(0.008),
+            sm_occupancy: Some(0.003),
+            tensor_active: Some(0.0),
+            memory_bandwidth_utilization: Some(0.02),
+            pcie_tx_bytes_per_sec: Some(1.2e9),
+            pcie_rx_bytes_per_sec: Some(3.0e8),
+            ..Default::default()
         });
         let mut buf: Vec<u8> = Vec::new();
-        render_hardware_details_row(&mut buf, &gpu);
+        render_gpm_metrics_row(&mut buf, &gpu);
         let rendered = strip_ansi(&String::from_utf8(buf).expect("valid utf-8"));
-        assert!(rendered.contains("GPM:"), "{rendered}");
-        assert!(rendered.contains("SM=0.67"), "{rendered}");
-        assert!(rendered.contains("MemBW=0.42"), "{rendered}");
+        assert!(rendered.contains("GPM"), "{rendered}");
+        assert!(rendered.contains("SMact"), "{rendered}");
+        assert!(rendered.contains("Occ"), "{rendered}");
+        assert!(rendered.contains("Tensor"), "{rendered}");
+        assert!(rendered.contains("DRAM"), "{rendered}");
+        assert!(rendered.contains("PCIe"), "{rendered}");
     }
 
     #[test]
@@ -1632,9 +1694,19 @@ mod tests {
     }
 
     #[test]
+    fn gpm_row_counts_independently_of_hw_row() {
+        use crate::device::GpmMetrics;
+        let mut gpu = bare_gpu();
+        gpu.gpm_metrics = Some(GpmMetrics {
+            sm_active: Some(0.5),
+            ..Default::default()
+        });
+        assert_eq!(gpu_render_line_count(&gpu, &[], &[]), 3);
+    }
+
+    #[test]
     fn hw_row_gpm_only_does_not_emit_row() {
-        // Support-only GPM must not trigger the row — the row is reserved
-        // for topology / firmware / NUMA info that a human would inspect.
+        // Support-only GPM must not trigger either row.
         use crate::device::GpmMetrics;
         let mut gpu = bare_gpu();
         gpu.gpm_metrics = Some(GpmMetrics::default());

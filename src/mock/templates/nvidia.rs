@@ -13,6 +13,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 use crate::mock::metrics::{CpuMetrics, GpuMetrics, MemoryMetrics};
 use all_smi::traits::mock_generator::{
@@ -26,7 +28,7 @@ use all_smi::traits::mock_generator::{
 /// * NUMA node id
 /// * GSP firmware mode and version
 /// * NvLink remote endpoint classification per active link
-/// * GPM SM occupancy and memory bandwidth utilization (Hopper+)
+/// * GPM metrics (full field set: SM/tensor/DRAM/PCIe/NVLink/codec ratios)
 /// * Thermal thresholds (slowdown, shutdown, max-operating, acoustic)
 /// * Canonical P-state gauge (`all_smi_gpu_performance_state`)
 ///
@@ -224,8 +226,26 @@ impl NvidiaMockGenerator {
         const GSP_MODE: u8 = 1;
         const GSP_VERSION: &str = "550.54.15";
         const NVLINK_COUNT: u32 = 6;
-        const SM_OCCUPANCY: f32 = 0.67;
+        // Consistent GPM mock: tensor ≤ sm_active ≤ graphics; occupancy ≤ sm_active.
+        const GRAPHICS_ACTIVE: f32 = 0.90;
+        const SM_ACTIVE: f32 = 0.55;
+        const SM_OCCUPANCY: f32 = 0.40;
+        const TENSOR_ACTIVE: f32 = 0.25;
+        const TENSOR_HMMA: f32 = 0.20;
+        const TENSOR_IMMA: f32 = 0.02;
+        const TENSOR_DFMA: f32 = 0.01;
+        const FP64_ACTIVE: f32 = 0.00;
+        const FP32_ACTIVE: f32 = 0.30;
+        const FP16_ACTIVE: f32 = 0.15;
+        const INTEGER_ACTIVE: f32 = 0.05;
         const MEMORY_BW_UTIL: f32 = 0.42;
+        const PCIE_TX: f64 = 1.2e9;
+        const PCIE_RX: f64 = 3.0e8;
+        const NVLINK_TX: f64 = 4.0e9;
+        const NVLINK_RX: f64 = 4.1e9;
+        const NVDEC_ACTIVE: f32 = 0.00;
+        const NVJPG_ACTIVE: f32 = 0.00;
+        const NVOFA_ACTIVE: f32 = 0.00;
 
         // --- NUMA node id ---
         template.push_str(
@@ -301,34 +321,121 @@ impl NvidiaMockGenerator {
 
         // --- GPM metrics (Hopper+ only in reality; the mock pretends
         // every GPU is GPM-capable so the TUI / exporter paths see data).
-        template.push_str(
-            "# HELP all_smi_gpu_sm_occupancy GPM-reported SM occupancy fraction (0.0-1.0); \
-             omitted on devices that do not support GPM (pre-Hopper)\n",
-        );
-        template.push_str("# TYPE all_smi_gpu_sm_occupancy gauge\n");
-        for (i, gpu) in gpus.iter().enumerate() {
-            let labels = format!(
-                "gpu=\"{}\", instance=\"{}\", gpu_uuid=\"{}\", gpu_index=\"{i}\"",
-                self.gpu_name, self.instance_name, gpu.uuid
-            );
-            template.push_str(&format!(
-                "all_smi_gpu_sm_occupancy{{{labels}}} {SM_OCCUPANCY:.2}\n"
-            ));
-        }
-
-        template.push_str(
-            "# HELP all_smi_gpu_memory_bandwidth_utilization GPM-reported memory bandwidth utilization fraction (0.0-1.0); \
-             omitted on devices that do not support GPM (pre-Hopper)\n",
-        );
-        template.push_str("# TYPE all_smi_gpu_memory_bandwidth_utilization gauge\n");
-        for (i, gpu) in gpus.iter().enumerate() {
-            let labels = format!(
-                "gpu=\"{}\", instance=\"{}\", gpu_uuid=\"{}\", gpu_index=\"{i}\"",
-                self.gpu_name, self.instance_name, gpu.uuid
-            );
-            template.push_str(&format!(
-                "all_smi_gpu_memory_bandwidth_utilization{{{labels}}} {MEMORY_BW_UTIL:.2}\n"
-            ));
+        // Values are internally consistent: tensor ≤ sm_active ≤ graphics,
+        // occupancy ≤ sm_active.
+        let gpm_gauges: &[(&str, &str, f64)] = &[
+            (
+                "all_smi_gpu_graphics_active_ratio",
+                "Graphics engine active fraction (0.0-1.0)",
+                GRAPHICS_ACTIVE as f64,
+            ),
+            (
+                "all_smi_gpu_sm_active_ratio",
+                "SM active fraction (0.0-1.0)",
+                SM_ACTIVE as f64,
+            ),
+            (
+                "all_smi_gpu_sm_occupancy",
+                "GPM-reported SM occupancy fraction (0.0-1.0); \
+                 omitted on devices that do not support GPM (pre-Hopper)",
+                SM_OCCUPANCY as f64,
+            ),
+            (
+                "all_smi_gpu_tensor_active_ratio",
+                "Any tensor pipe active fraction (0.0-1.0)",
+                TENSOR_ACTIVE as f64,
+            ),
+            (
+                "all_smi_gpu_tensor_hmma_active_ratio",
+                "HMMA tensor pipe active fraction (0.0-1.0)",
+                TENSOR_HMMA as f64,
+            ),
+            (
+                "all_smi_gpu_tensor_imma_active_ratio",
+                "IMMA tensor pipe active fraction (0.0-1.0)",
+                TENSOR_IMMA as f64,
+            ),
+            (
+                "all_smi_gpu_tensor_dfma_active_ratio",
+                "DFMA tensor pipe active fraction (0.0-1.0)",
+                TENSOR_DFMA as f64,
+            ),
+            (
+                "all_smi_gpu_fp64_active_ratio",
+                "FP64 pipe active fraction (0.0-1.0)",
+                FP64_ACTIVE as f64,
+            ),
+            (
+                "all_smi_gpu_fp32_active_ratio",
+                "FP32 pipe active fraction (0.0-1.0)",
+                FP32_ACTIVE as f64,
+            ),
+            (
+                "all_smi_gpu_fp16_active_ratio",
+                "FP16 pipe active fraction (0.0-1.0)",
+                FP16_ACTIVE as f64,
+            ),
+            (
+                "all_smi_gpu_integer_active_ratio",
+                "Integer pipe active fraction (0.0-1.0)",
+                INTEGER_ACTIVE as f64,
+            ),
+            (
+                "all_smi_gpu_memory_bandwidth_utilization",
+                "GPM-reported memory bandwidth utilization fraction (0.0-1.0); \
+                 omitted on devices that do not support GPM (pre-Hopper)",
+                MEMORY_BW_UTIL as f64,
+            ),
+            (
+                "all_smi_gpu_pcie_tx_bytes_per_second",
+                "PCIe transmit throughput in bytes/sec",
+                PCIE_TX,
+            ),
+            (
+                "all_smi_gpu_pcie_rx_bytes_per_second",
+                "PCIe receive throughput in bytes/sec",
+                PCIE_RX,
+            ),
+            (
+                "all_smi_gpu_nvlink_tx_bytes_per_second",
+                "NVLink transmit throughput in bytes/sec (total)",
+                NVLINK_TX,
+            ),
+            (
+                "all_smi_gpu_nvlink_rx_bytes_per_second",
+                "NVLink receive throughput in bytes/sec (total)",
+                NVLINK_RX,
+            ),
+            (
+                "all_smi_gpu_nvdec_active_ratio",
+                "Mean NVDEC instance utilization (0.0-1.0)",
+                NVDEC_ACTIVE as f64,
+            ),
+            (
+                "all_smi_gpu_nvjpg_active_ratio",
+                "Mean NVJPG instance utilization (0.0-1.0)",
+                NVJPG_ACTIVE as f64,
+            ),
+            (
+                "all_smi_gpu_nvofa_active_ratio",
+                "Mean NVOFA instance utilization (0.0-1.0)",
+                NVOFA_ACTIVE as f64,
+            ),
+        ];
+        for (name, help, value) in gpm_gauges {
+            template.push_str(&format!("# HELP {name} {help}\n"));
+            template.push_str(&format!("# TYPE {name} gauge\n"));
+            for (i, gpu) in gpus.iter().enumerate() {
+                let labels = format!(
+                    "gpu=\"{}\", instance=\"{}\", gpu_uuid=\"{}\", gpu_index=\"{i}\", source=\"gpm\"",
+                    self.gpu_name, self.instance_name, gpu.uuid
+                );
+                if name.contains("bytes_per_second") {
+                    template.push_str(&format!("{name}{{{labels}}} {value:.0}\n"));
+                } else {
+                    template.push_str(&format!("{name}{{{labels}}} {value:.2}\n"));
+                }
+            }
         }
     }
 
@@ -984,6 +1091,10 @@ mod tests {
             "all_smi_nvlink_remote_device_type{",
             "all_smi_gpu_sm_occupancy{",
             "all_smi_gpu_memory_bandwidth_utilization{",
+            "all_smi_gpu_sm_active_ratio{",
+            "all_smi_gpu_graphics_active_ratio{",
+            "all_smi_gpu_tensor_active_ratio{",
+            "all_smi_gpu_pcie_tx_bytes_per_second{",
         ] {
             assert!(
                 !tpl.contains(metric),
@@ -1123,6 +1234,22 @@ mod tests {
                 tpl.contains("all_smi_gpu_memory_bandwidth_utilization{"),
                 "mock template missing memory bandwidth utilization metric:\n{tpl}"
             );
+            assert!(
+                tpl.contains("all_smi_gpu_sm_active_ratio{"),
+                "mock template missing sm_active metric:\n{tpl}"
+            );
+            assert!(
+                tpl.contains("all_smi_gpu_graphics_active_ratio{"),
+                "mock template missing graphics_active metric:\n{tpl}"
+            );
+            assert!(
+                tpl.contains("all_smi_gpu_tensor_active_ratio{"),
+                "mock template missing tensor_active metric:\n{tpl}"
+            );
+            assert!(
+                tpl.contains(r#"source="gpm""#),
+                "mock GPM metrics must carry source=gpm:\n{tpl}"
+            );
         });
     }
 
@@ -1203,20 +1330,29 @@ mod tests {
             let gpus = make_gpu_metrics();
             let tpl =
                 gen_.build_nvidia_template(&gpus, &make_cpu_metrics(), &make_memory_metrics());
-            // Parse the SM occupancy line and sanity-check the value band.
-            let sm_line = tpl
-                .lines()
-                .find(|l| l.starts_with("all_smi_gpu_sm_occupancy{"))
-                .expect("SM occupancy line");
-            let value: f32 = sm_line
-                .rsplit(' ')
-                .next()
-                .and_then(|s| s.parse().ok())
-                .expect("SM occupancy value");
-            assert!(
-                (0.0..=1.0).contains(&value),
-                "SM occupancy out of range: {value}"
-            );
+            let mut sm_active = None;
+            let mut tensor = None;
+            let mut occupancy = None;
+            for line in tpl.lines() {
+                let value = |prefix: &str| {
+                    line.strip_prefix(prefix).and_then(|rest| {
+                        rest.rsplit(' ').next().and_then(|s| s.parse::<f32>().ok())
+                    })
+                };
+                if line.starts_with("all_smi_gpu_sm_active_ratio{") {
+                    sm_active = value("all_smi_gpu_sm_active_ratio{");
+                } else if line.starts_with("all_smi_gpu_tensor_active_ratio{") {
+                    tensor = value("all_smi_gpu_tensor_active_ratio{");
+                } else if line.starts_with("all_smi_gpu_sm_occupancy{") {
+                    occupancy = value("all_smi_gpu_sm_occupancy{");
+                }
+            }
+            let sm = sm_active.expect("sm_active");
+            let tens = tensor.expect("tensor");
+            let occ = occupancy.expect("occupancy");
+            assert!((0.0..=1.0).contains(&sm));
+            assert!(tens <= sm + 1e-6, "tensor {tens} > sm_active {sm}");
+            assert!(occ <= sm + 1e-6, "occupancy {occ} > sm_active {sm}");
         });
     }
 }

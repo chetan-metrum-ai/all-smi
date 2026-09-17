@@ -25,6 +25,21 @@ The application presents a terminal-based user interface with cluster overview, 
 
 ## Installation
 
+### Install (Metrum fork)
+
+Deep-telemetry builds of this fork are published on the Metrum GitHub Releases
+page after the DCGM plugin lands (P4). Prefer the glibc x86_64 tarball on GPU
+servers:
+
+1. Open https://github.com/chetan-metrum-ai/all-smi/releases
+2. Download `all-smi-linux-x86_64.tar.gz` (and its `.sha256`)
+3. Extract and run `./all-smi doctor --json`
+
+Tags use a `v*-metrum.N` suffix so they never collide with upstream
+`lablup/all-smi` releases. macOS aarch64 zips are unsigned. musl archives omit
+the AMD (and later DCGM) runtime plugins. Until the first Metrum tag, build
+from source on a GPU box with `cargo build --release`.
+
 ### Option 1: Install via Homebrew (macOS/Linux)
 
 The easiest way to install all-smi on macOS and Linux is through Homebrew:

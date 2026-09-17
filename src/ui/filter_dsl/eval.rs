@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 //! Evaluation of parsed filter expressions against a row.
 //!
@@ -76,6 +78,30 @@ pub trait DeviceRowView {
     fn device_type_field(&self) -> Option<&str> {
         None
     }
+    fn sm_active_field(&self) -> Option<f64> {
+        None
+    }
+    fn sm_occupancy_field(&self) -> Option<f64> {
+        None
+    }
+    fn tensor_active_field(&self) -> Option<f64> {
+        None
+    }
+    fn dram_active_field(&self) -> Option<f64> {
+        None
+    }
+    fn pcie_tx_field(&self) -> Option<f64> {
+        None
+    }
+    fn pcie_rx_field(&self) -> Option<f64> {
+        None
+    }
+    fn nvlink_tx_field(&self) -> Option<f64> {
+        None
+    }
+    fn nvlink_rx_field(&self) -> Option<f64> {
+        None
+    }
 
     /// Generic presence check used when the evaluator needs to distinguish
     /// "field absent" from "field value compared false". The default
@@ -97,6 +123,14 @@ pub trait DeviceRowView {
             Field::Pstate => self.pstate_field().is_none(),
             Field::Numa => self.numa_field().is_none(),
             Field::DeviceType => self.device_type_field().is_none(),
+            Field::SmActive => self.sm_active_field().is_none(),
+            Field::SmOccupancy => self.sm_occupancy_field().is_none(),
+            Field::TensorActive => self.tensor_active_field().is_none(),
+            Field::DramActive => self.dram_active_field().is_none(),
+            Field::PcieTx => self.pcie_tx_field().is_none(),
+            Field::PcieRx => self.pcie_rx_field().is_none(),
+            Field::NvlinkTx => self.nvlink_tx_field().is_none(),
+            Field::NvlinkRx => self.nvlink_rx_field().is_none(),
         }
     }
 }
@@ -186,6 +220,14 @@ fn numeric_value<R: DeviceRowView + ?Sized>(field: Field, row: &R) -> Option<f64
         Field::Index => row.index_field(),
         Field::Pstate => row.pstate_field(),
         Field::Numa => row.numa_field(),
+        Field::SmActive => row.sm_active_field(),
+        Field::SmOccupancy => row.sm_occupancy_field(),
+        Field::TensorActive => row.tensor_active_field(),
+        Field::DramActive => row.dram_active_field(),
+        Field::PcieTx => row.pcie_tx_field(),
+        Field::PcieRx => row.pcie_rx_field(),
+        Field::NvlinkTx => row.nvlink_tx_field(),
+        Field::NvlinkRx => row.nvlink_rx_field(),
         _ => None,
     }
 }
@@ -265,6 +307,50 @@ impl DeviceRowView for GpuInfo {
     }
     fn device_type_field(&self) -> Option<&str> {
         Some(&self.device_type)
+    }
+    fn sm_active_field(&self) -> Option<f64> {
+        self.gpm_metrics
+            .as_ref()
+            .and_then(|g| g.sm_active)
+            .map(|v| v as f64)
+    }
+    fn sm_occupancy_field(&self) -> Option<f64> {
+        self.gpm_metrics
+            .as_ref()
+            .and_then(|g| g.sm_occupancy)
+            .map(|v| v as f64)
+    }
+    fn tensor_active_field(&self) -> Option<f64> {
+        self.gpm_metrics
+            .as_ref()
+            .and_then(|g| g.tensor_active)
+            .map(|v| v as f64)
+    }
+    fn dram_active_field(&self) -> Option<f64> {
+        self.gpm_metrics
+            .as_ref()
+            .and_then(|g| g.memory_bandwidth_utilization)
+            .map(|v| v as f64)
+    }
+    fn pcie_tx_field(&self) -> Option<f64> {
+        self.gpm_metrics
+            .as_ref()
+            .and_then(|g| g.pcie_tx_bytes_per_sec)
+    }
+    fn pcie_rx_field(&self) -> Option<f64> {
+        self.gpm_metrics
+            .as_ref()
+            .and_then(|g| g.pcie_rx_bytes_per_sec)
+    }
+    fn nvlink_tx_field(&self) -> Option<f64> {
+        self.gpm_metrics
+            .as_ref()
+            .and_then(|g| g.nvlink_tx_bytes_per_sec)
+    }
+    fn nvlink_rx_field(&self) -> Option<f64> {
+        self.gpm_metrics
+            .as_ref()
+            .and_then(|g| g.nvlink_rx_bytes_per_sec)
     }
 }
 

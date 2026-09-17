@@ -1,0 +1,463 @@
+{
+  "schema": 1,
+  "version": "0.26.3",
+  "timestamp": "2026-09-17T02:25:44.827059346+00:00",
+  "summary": {
+    "pass": 29,
+    "warn": 2,
+    "fail": 0,
+    "skip": 33
+  },
+  "checks": [
+    {
+      "id": "amd.adl.adapters",
+      "title": "AMD ADL adapter inventory",
+      "status": "skip",
+      "message": "ADL is Windows-only",
+      "duration_ms": 0
+    },
+    {
+      "id": "amd.adl.library",
+      "title": "AMD ADL library (atiadlxx.dll)",
+      "status": "skip",
+      "message": "ADL is Windows-only",
+      "duration_ms": 0
+    },
+    {
+      "id": "amd.adl.per_adapter",
+      "title": "AMD ADL per-adapter PMLog sampling",
+      "status": "skip",
+      "message": "ADL is Windows-only",
+      "duration_ms": 0
+    },
+    {
+      "id": "amd.adl.sensors",
+      "title": "AMD ADL PMLog sensors",
+      "status": "skip",
+      "message": "ADL is Windows-only",
+      "duration_ms": 0
+    },
+    {
+      "id": "amd.build.target_env",
+      "title": "AMD build-time availability",
+      "status": "pass",
+      "message": "glibc Linux build — AMD runtime loader compiled in; the `amd` cargo feature does not gate it",
+      "duration_ms": 0
+    },
+    {
+      "id": "amd.dri.perms",
+      "title": "/dev/dri permissions",
+      "status": "pass",
+      "message": "3 node(s): card1, renderD128, card0",
+      "duration_ms": 0
+    },
+    {
+      "id": "amd.libamdgpu_top.abi",
+      "title": "AMD runtime plugin",
+      "status": "warn",
+      "message": "AMD plugin unavailable; /home/<user>/all-smi/target/release/liball_smi_amd.so: not found; /home/<user>/all-smi/target/release/../lib/all-smi/liball_smi_amd.so: not found; /usr/local/lib/all-smi/liball_smi_amd.so: not found; /usr/lib/all-smi/liball_smi_amd.so: not found. Install liball_smi_amd.so beside the executable or in /usr/lib/all-smi, or set ALL_SMI_AMD_PLUGIN to a safe absolute path",
+      "fix": "install the packaged AMD companion library, then rerun doctor; missing libdrm dependencies are reported by dlopen in this check",
+      "duration_ms": 0
+    },
+    {
+      "id": "amd.rocm.version",
+      "title": "ROCm version",
+      "status": "skip",
+      "message": "ROCm not detected (neither /opt/rocm nor rocminfo)",
+      "duration_ms": 0
+    },
+    {
+      "id": "apple.macos.version",
+      "title": "macOS version",
+      "status": "skip",
+      "message": "not macOS",
+      "duration_ms": 0
+    },
+    {
+      "id": "apple.silicon",
+      "title": "Apple Silicon detection",
+      "status": "skip",
+      "message": "not macOS",
+      "duration_ms": 0
+    },
+    {
+      "id": "apple.smc",
+      "title": "SMC accessibility",
+      "status": "skip",
+      "message": "not macOS",
+      "duration_ms": 0
+    },
+    {
+      "id": "container.cgroup",
+      "title": "cgroup version + limits",
+      "status": "pass",
+      "message": "cgroupv2, cpuset=0-19",
+      "duration_ms": 0
+    },
+    {
+      "id": "container.k8s_serviceaccount",
+      "title": "Kubernetes ServiceAccount token",
+      "status": "skip",
+      "message": "not a Kubernetes pod",
+      "duration_ms": 0
+    },
+    {
+      "id": "container.runtime",
+      "title": "Container runtime",
+      "status": "pass",
+      "message": "bare metal / VM (no container)",
+      "duration_ms": 0
+    },
+    {
+      "id": "env.all_smi",
+      "title": "ALL_SMI_* environment variables",
+      "status": "pass",
+      "message": "none set",
+      "duration_ms": 0
+    },
+    {
+      "id": "env.cuda",
+      "title": "CUDA_* environment variables",
+      "status": "pass",
+      "message": "none set",
+      "duration_ms": 0
+    },
+    {
+      "id": "env.hl",
+      "title": "HL_* / HABANA_* environment variables",
+      "status": "pass",
+      "message": "none set",
+      "duration_ms": 0
+    },
+    {
+      "id": "env.rocr",
+      "title": "ROCR_* / HIP_* environment variables",
+      "status": "pass",
+      "message": "none set",
+      "duration_ms": 0
+    },
+    {
+      "id": "env.tpu",
+      "title": "TPU_* environment variables",
+      "status": "pass",
+      "message": "none set",
+      "duration_ms": 0
+    },
+    {
+      "id": "furiosa.feature",
+      "title": "Furiosa feature compiled in",
+      "status": "skip",
+      "message": "compiled without `furiosa` feature",
+      "duration_ms": 0
+    },
+    {
+      "id": "furiosa.smi",
+      "title": "furiosa-smi binary",
+      "status": "skip",
+      "message": "furiosa-smi not found",
+      "duration_ms": 10
+    },
+    {
+      "id": "gaudi.devices",
+      "title": "Gaudi device nodes",
+      "status": "skip",
+      "message": "no Habana device nodes found",
+      "duration_ms": 0
+    },
+    {
+      "id": "gaudi.driver",
+      "title": "Habana driver version",
+      "status": "skip",
+      "message": "hl-smi did not report a driver version",
+      "duration_ms": 0
+    },
+    {
+      "id": "gaudi.hlsmi",
+      "title": "hl-smi binary",
+      "status": "skip",
+      "message": "hl-smi not found",
+      "duration_ms": 10
+    },
+    {
+      "id": "level_zero.build",
+      "title": "Level Zero build-time availability",
+      "status": "pass",
+      "message": "compiled in for linux (unconditional on this target, not the `level_zero` cargo feature)",
+      "duration_ms": 0
+    },
+    {
+      "id": "level_zero.devices",
+      "title": "Level Zero device visibility",
+      "status": "skip",
+      "message": "Level Zero did not initialise",
+      "duration_ms": 2
+    },
+    {
+      "id": "level_zero.init",
+      "title": "Level Zero runtime initialisation",
+      "status": "skip",
+      "message": "no Level Zero loader to initialise",
+      "duration_ms": 11
+    },
+    {
+      "id": "level_zero.loader",
+      "title": "Level Zero loader library",
+      "status": "skip",
+      "message": "no Level Zero loader found and no Intel GPU present; tried libze_loader.so.1, libze_loader.so, /usr/lib/x86_64-linux-gnu/libze_loader.so.1, /usr/lib/x86_64-linux-gnu/libze_loader.so, /usr/lib64/libze_loader.so.1, /usr/lib64/libze_loader.so, /usr/local/lib/libze_loader.so.1",
+      "duration_ms": 11
+    },
+    {
+      "id": "network.dns",
+      "title": "DNS resolution for --remote-check targets",
+      "status": "skip",
+      "message": "no --remote-check targets",
+      "duration_ms": 0
+    },
+    {
+      "id": "network.http",
+      "title": "HTTP /metrics probe for --remote-check targets",
+      "status": "skip",
+      "message": "no --remote-check targets",
+      "duration_ms": 0
+    },
+    {
+      "id": "network.tcp",
+      "title": "TCP reachability for --remote-check targets",
+      "status": "skip",
+      "message": "no --remote-check targets",
+      "duration_ms": 0
+    },
+    {
+      "id": "nvidia.dcgm.hostengine",
+      "title": "DCGM host engine",
+      "status": "pass",
+      "message": "host engine reachable: 1 GPU found (Active).",
+      "duration_ms": 51
+    },
+    {
+      "id": "nvidia.dcgm.library",
+      "title": "DCGM library / dcgmi binary",
+      "status": "pass",
+      "message": "dcgmi at /usr/bin/dcgmi; libdcgm present",
+      "duration_ms": 31
+    },
+    {
+      "id": "nvidia.dcgm.prof_module",
+      "title": "DCGM profiling fields (SM_ACTIVE)",
+      "status": "pass",
+      "message": "dcgmi dmon -e 1002 succeeded (profiling module usable)",
+      "duration_ms": 51
+    },
+    {
+      "id": "nvidia.driver.version",
+      "title": "Driver version",
+      "status": "pass",
+      "message": "NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  580.126.09  Release Build  (dvs-builder@U22-I3-AM02-24-3)  Wed Jan  7 22:51:36 UTC 2026",
+      "duration_ms": 0
+    },
+    {
+      "id": "nvidia.env.visible_devices",
+      "title": "NVIDIA_VISIBLE_DEVICES / CUDA_VISIBLE_DEVICES",
+      "status": "pass",
+      "message": "no GPU visibility restrictions",
+      "duration_ms": 0
+    },
+    {
+      "id": "nvidia.gpm.supported",
+      "title": "NVML GPM support (Hopper+)",
+      "status": "pass",
+      "message": "GPM supported on at least one of 1 device(s) (Hopper+)",
+      "duration_ms": 40
+    },
+    {
+      "id": "nvidia.mig.mode",
+      "title": "MIG mode",
+      "status": "pass",
+      "message": "MIG disabled on all GPUs",
+      "duration_ms": 30
+    },
+    {
+      "id": "nvidia.nvml.loadable",
+      "title": "NVML library loadable",
+      "status": "pass",
+      "message": "NVML initialised",
+      "duration_ms": 11
+    },
+    {
+      "id": "nvidia.smi.binary",
+      "title": "nvidia-smi binary",
+      "status": "pass",
+      "message": "NVIDIA-SMI version  : 580.126.09 (/usr/bin/nvidia-smi)",
+      "duration_ms": 51
+    },
+    {
+      "id": "platform.cpu",
+      "title": "CPU summary",
+      "status": "pass",
+      "message": "Intel(R) Xeon(R) Platinum 8352Y CPU @ 2.20GHz (20 physical / 20 logical)",
+      "duration_ms": 5
+    },
+    {
+      "id": "platform.hardware",
+      "title": "Detected accelerator inventory",
+      "status": "pass",
+      "message": "NVIDIA",
+      "duration_ms": 82
+    },
+    {
+      "id": "platform.memory",
+      "title": "System memory",
+      "status": "pass",
+      "message": "125.9 GiB total",
+      "duration_ms": 0
+    },
+    {
+      "id": "platform.os",
+      "title": "Operating system",
+      "status": "pass",
+      "message": "Linux 6.8.0-90-generic x86_64",
+      "duration_ms": 10
+    },
+    {
+      "id": "platform.runtime",
+      "title": "Build target / runtime",
+      "status": "pass",
+      "message": "target x86_64-unknown-linux-gnu (env=gnu)",
+      "duration_ms": 0
+    },
+    {
+      "id": "platform.uptime",
+      "title": "System uptime",
+      "status": "pass",
+      "message": "0d 0h 16m",
+      "duration_ms": 0
+    },
+    {
+      "id": "privileges.dev_dri",
+      "title": "/dev/dri access",
+      "status": "pass",
+      "message": "4 node(s) present",
+      "duration_ms": 0
+    },
+    {
+      "id": "privileges.dev_tenstorrent",
+      "title": "/dev/tenstorrent access",
+      "status": "skip",
+      "message": "/dev/tenstorrent does not exist",
+      "duration_ms": 0
+    },
+    {
+      "id": "privileges.root",
+      "title": "Root / sudo availability",
+      "status": "pass",
+      "message": "running as unprivileged user",
+      "duration_ms": 0
+    },
+    {
+      "id": "privileges.user",
+      "title": "Calling user identity",
+      "status": "pass",
+      "message": "<user> (uid=1002)",
+      "duration_ms": 0
+    },
+    {
+      "id": "privileges.video_render_group",
+      "title": "video/render group membership",
+      "status": "warn",
+      "message": "not in video or render groups",
+      "fix": "run `sudo usermod -aG video,render $USER` and re-login",
+      "duration_ms": 10
+    },
+    {
+      "id": "rebellions.driver",
+      "title": "Rebellions driver",
+      "status": "skip",
+      "message": "rbln-stat not available",
+      "duration_ms": 0
+    },
+    {
+      "id": "rebellions.rblnstat",
+      "title": "rbln-stat binary",
+      "status": "skip",
+      "message": "neither rbln-stat nor rbln-smi found",
+      "duration_ms": 20
+    },
+    {
+      "id": "tenstorrent.kmd",
+      "title": "/dev/tenstorrent presence",
+      "status": "skip",
+      "message": "/dev/tenstorrent missing",
+      "duration_ms": 0
+    },
+    {
+      "id": "tenstorrent.luwen",
+      "title": "luwen library linked",
+      "status": "pass",
+      "message": "luwen linked (Linux build)",
+      "duration_ms": 0
+    },
+    {
+      "id": "tenstorrent.module",
+      "title": "tt-kmd kernel module",
+      "status": "skip",
+      "message": "tt-kmd not present in /proc/modules",
+      "duration_ms": 0
+    },
+    {
+      "id": "tpu.accel.vendor",
+      "title": "/dev/accel* Google vendor ID",
+      "status": "skip",
+      "message": "no accel* with Google vendor ID",
+      "duration_ms": 0
+    },
+    {
+      "id": "tpu.env.name",
+      "title": "TPU_NAME environment",
+      "status": "skip",
+      "message": "TPU_NAME not set",
+      "duration_ms": 0
+    },
+    {
+      "id": "tpu.libtpu",
+      "title": "libtpu presence",
+      "status": "skip",
+      "message": "libtpu not found",
+      "duration_ms": 0
+    },
+    {
+      "id": "windows.amd_ryzen_master",
+      "title": "AMD Ryzen Master SDK",
+      "status": "skip",
+      "message": "not Windows",
+      "duration_ms": 0
+    },
+    {
+      "id": "windows.gpu.perf_counters",
+      "title": "GPU performance counters (DXGI / PDH)",
+      "status": "skip",
+      "message": "not Windows",
+      "duration_ms": 0
+    },
+    {
+      "id": "windows.intel_wmi",
+      "title": "Intel WMI temperature provider",
+      "status": "skip",
+      "message": "not Windows",
+      "duration_ms": 0
+    },
+    {
+      "id": "windows.libre_hardware_monitor",
+      "title": "LibreHardwareMonitor service",
+      "status": "skip",
+      "message": "not Windows",
+      "duration_ms": 0
+    },
+    {
+      "id": "windows.wmi",
+      "title": "WMI thermal-zone access",
+      "status": "skip",
+      "message": "not Windows",
+      "duration_ms": 0
+    }
+  ]
+}
