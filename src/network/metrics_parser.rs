@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 use std::collections::{HashMap, HashSet};
 
@@ -21,7 +23,8 @@ use regex::Regex;
 use crate::device::types::{GPU_METRIC_UNAVAILABLE, MAX_GPU_FAN_RPM};
 use crate::device::{
     AppleSiliconCpuInfo, CpuInfo, CpuPlatformType, GpmMetrics, GpuInfo, MemoryInfo, MigGpuInfo,
-    MigInstanceInfo, NvLinkRemoteDevice, NvLinkRemoteType, VgpuHostInfo, VgpuInfo,
+    MigInstanceInfo, NvLinkRemoteDevice, NvLinkRemoteType, TelemetrySource, VgpuHostInfo,
+    VgpuInfo,
 };
 use crate::storage::info::StorageInfo;
 
@@ -708,11 +711,113 @@ impl MetricsParser {
                 // are dropped rather than clamped so dashboards can
                 // distinguish "unavailable" from "definitely zero".
                 if value.is_finite() && (0.0..=1.0).contains(&value) => {
-                    ensure_gpm_metrics(gpu_info).sm_occupancy = Some(value as f32);
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.sm_occupancy = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
                 }
             "gpu_memory_bandwidth_utilization"
                 if value.is_finite() && (0.0..=1.0).contains(&value) => {
-                    ensure_gpm_metrics(gpu_info).memory_bandwidth_utilization = Some(value as f32);
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.memory_bandwidth_utilization = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_graphics_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.graphics_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_sm_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.sm_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_tensor_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.tensor_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_tensor_hmma_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.tensor_hmma_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_tensor_imma_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.tensor_imma_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_tensor_dfma_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.tensor_dfma_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_fp64_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.fp64_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_fp32_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.fp32_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_fp16_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.fp16_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_integer_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.integer_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_pcie_tx_bytes_per_second" if value.is_finite() && value >= 0.0 => {
+                let gpm = ensure_gpm_metrics(gpu_info);
+                gpm.pcie_tx_bytes_per_sec = Some(value);
+                apply_gpm_source(gpm, labels);
+            }
+            "gpu_pcie_rx_bytes_per_second" if value.is_finite() && value >= 0.0 => {
+                let gpm = ensure_gpm_metrics(gpu_info);
+                gpm.pcie_rx_bytes_per_sec = Some(value);
+                apply_gpm_source(gpm, labels);
+            }
+            "gpu_nvlink_tx_bytes_per_second" if value.is_finite() && value >= 0.0 => {
+                let gpm = ensure_gpm_metrics(gpu_info);
+                gpm.nvlink_tx_bytes_per_sec = Some(value);
+                apply_gpm_source(gpm, labels);
+            }
+            "gpu_nvlink_rx_bytes_per_second" if value.is_finite() && value >= 0.0 => {
+                let gpm = ensure_gpm_metrics(gpu_info);
+                gpm.nvlink_rx_bytes_per_sec = Some(value);
+                apply_gpm_source(gpm, labels);
+            }
+            "gpu_nvdec_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.nvdec_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_nvjpg_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.nvjpg_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
+                }
+            "gpu_nvofa_active_ratio"
+                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+                    let gpm = ensure_gpm_metrics(gpu_info);
+                    gpm.nvofa_active = Some(value as f32);
+                    apply_gpm_source(gpm, labels);
                 }
             "npu_firmware_info" => {
                 // Handle NPU-specific firmware info metric
@@ -1145,6 +1250,14 @@ fn ensure_gpm_metrics(gpu_info: &mut GpuInfo) -> &mut GpmMetrics {
         gpu_info.gpm_metrics = Some(GpmMetrics::default());
     }
     gpu_info.gpm_metrics.as_mut().expect("just populated above")
+}
+
+fn apply_gpm_source(gpm: &mut GpmMetrics, labels: &HashMap<String, String>) {
+    if let Some(label) = labels.get("source")
+        && let Some(src) = TelemetrySource::from_label(label)
+    {
+        gpm.source = Some(src);
+    }
 }
 
 fn split_labels_respecting_quotes(labels_str: &str) -> Vec<&str> {

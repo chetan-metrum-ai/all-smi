@@ -7,9 +7,7 @@
 //! while `gpm.sm_active` stays low — that is the definition of "the
 //! misleading-utilization problem is solved".
 //!
-//! P0 status: the test compiles and, when live-gated, skips numeric
-//! asserts until P1 populates real GPM fields. Captures are still required
-//! under `TECHNICAL_REPORTS/runs/*/parity/` for manual hollow verification.
+//! P1: numeric asserts run when captures contain real GPM fields.
 
 #![cfg(feature = "cli")]
 
@@ -131,12 +129,10 @@ fn gpm_parity_live_against_captures() {
     }
 
     let Some(parity) = find_latest_parity_dir() else {
-        eprintln!(
-            "no TECHNICAL_REPORTS/runs/*/parity directory; run scripts/dev/parity.sh first"
+        panic!(
+            "ALL_SMI_LIVE_GPU=1 but no TECHNICAL_REPORTS/runs/*/parity directory; \
+             run scripts/dev/parity.sh first"
         );
-        // P0: do not fail the suite when captures are absent — harness may
-        // not have been run yet on a fresh box.
-        return;
     };
 
     let hollow_dcgm = parity.join("hollow/dcgm_dmon.txt");
@@ -149,23 +145,17 @@ fn gpm_parity_live_against_captures() {
         .or_else(|| allsmi_gpm_mean(&hollow_allsmi, "sm_occupancy"));
     eprintln!("hollow all-smi gpm.sm_active mean = {sm_active_allsmi:?}");
 
-    // P0: real GPM values are not populated yet. Record presence only.
-    // P1 will tighten this to ±0.05 vs DCGM and the hollow util≥0.9 /
-    // sm_active≤0.05 contract.
-    if sm_active_allsmi.is_none() {
-        eprintln!(
-            "P0: all-smi GPM fields still None (expected until P1); \
-             DCGM hollow SM_ACTIVE={sm_active_dcgm:?}"
-        );
-        return;
-    }
-
-    let allsmi = sm_active_allsmi.unwrap();
+    let allsmi = sm_active_allsmi.expect(
+        "P1: all-smi GPM sm_active must be populated on Hopper after two polls",
+    );
     if let Some(dcgm) = sm_active_dcgm {
-        let delta = (allsmi - dcgm).abs();
+        // DCGM reports percent (0-100) in some captures and ratio (0-1) in
+        // others; normalise to ratio before comparing.
+        let dcgm_ratio = if dcgm > 1.0 { dcgm / 100.0 } else { dcgm };
+        let delta = (allsmi - dcgm_ratio).abs();
         assert!(
             delta <= 0.05,
-            "sm_active allsmi={allsmi} dcgm={dcgm} delta={delta} exceeds ±0.05"
+            "sm_active allsmi={allsmi} dcgm={dcgm_ratio} delta={delta} exceeds ±0.05"
         );
         assert!(
             allsmi <= 0.05,

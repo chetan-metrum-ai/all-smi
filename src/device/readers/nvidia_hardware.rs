@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 //! NVIDIA hardware-detail queries: NUMA topology, GSP firmware, NvLink
 //! remote endpoints, and GPM support detection (issue #132).
@@ -49,7 +51,7 @@ use nvml_wrapper::Nvml;
 use nvml_wrapper::enum_wrappers::nv_link::IntDeviceType;
 use nvml_wrapper::error::{NvmlError, nvml_try};
 
-use crate::device::types::{GpmMetrics, NvLinkRemoteDevice, NvLinkRemoteType};
+use crate::device::types::{NvLinkRemoteDevice, NvLinkRemoteType};
 
 /// Upper bound on the number of NvLinks NVML will report per GPU. NVIDIA's
 /// own header caps this at 18 for current generations; we keep the literal
@@ -339,35 +341,10 @@ pub(crate) fn nvlink_remote_type_from_wrapper(value: IntDeviceType) -> NvLinkRem
 /// Return `true` when the device reports GPM support via NVML's probe.
 /// Any error (symbol missing, `NotSupported`, `InvalidArg`) degrades to
 /// `false` so the caller never emits GPM metrics for a non-GPM device.
+///
+/// Live sampling lives in [`crate::device::readers::nvidia_gpm::GpmState`].
 pub fn gpm_is_supported(device: &nvml_wrapper::Device) -> bool {
     device.gpm_support().unwrap_or(false)
-}
-
-/// Placeholder GPM metric collection.
-///
-/// The GPM API requires two time-separated samples passed to
-/// `gpm_metrics_get`, which is incompatible with all-smi's single-poll
-/// reader contract: we would have to cache the previous sample per device
-/// and wait N seconds before the first reading is meaningful. That work is
-/// tracked as a follow-up. For now we:
-///
-/// * detect support via [`gpm_is_supported`] so the TUI and exporter can
-///   show a "GPM-capable" hint without emitting potentially wrong numbers;
-/// * return `None` from the collection path so the gauge metrics are
-///   omitted entirely (Prometheus convention for "no data") rather than
-///   silently publishing zeros.
-///
-/// When the two-sample implementation lands we will populate
-/// [`GpmMetrics::sm_occupancy`] and
-/// [`GpmMetrics::memory_bandwidth_utilization`] here.
-pub fn collect_gpm_metrics(device: &nvml_wrapper::Device) -> Option<GpmMetrics> {
-    if !gpm_is_supported(device) {
-        return None;
-    }
-    // Supported but unsampled — the two-sample handshake is deferred to a
-    // follow-up. Return a populated struct so the TUI can indicate
-    // "GPM-capable" without pretending specific numeric values are known.
-    Some(GpmMetrics::default())
 }
 
 /// Attempt to fetch a GPM support signal without going through the NVML

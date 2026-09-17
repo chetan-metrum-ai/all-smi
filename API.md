@@ -302,8 +302,25 @@ Extended NVIDIA hardware detail metrics (NUMA topology, GSP firmware, NvLink top
 | `all_smi_gpu_gsp_firmware_mode`           | GSP firmware mode: `0`=disabled, `1`=enabled, `2`=default; omitted on pre-R525 drivers or non-datacenter SKUs  | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`                                   |
 | `all_smi_gpu_gsp_firmware_version_info`   | Info-style metric (value always 1) carrying the GSP firmware version string in a `version` label                | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `version`                        |
 | `all_smi_nvlink_remote_device_type`       | Info-style metric (value always 1) per active NvLink; classification in `remote_type` label                     | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `link_index`, `remote_type`      |
-| `all_smi_gpu_sm_occupancy`                | GPM-reported SM occupancy fraction (0.0–1.0); omitted on pre-Hopper GPUs or when GPM has not yet sampled        | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`                                   |
-| `all_smi_gpu_memory_bandwidth_utilization`| GPM-reported DRAM bandwidth utilization fraction (0.0–1.0); omitted when GPM is unsupported or unsampled        | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`                                   |
+| `all_smi_gpu_graphics_active_ratio`       | Graphics engine active fraction (0.0–1.0); aligns with nvidia-smi GPU-Util                                     | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_sm_active_ratio`             | SM active fraction (0.0–1.0); DCGM field 1002                                                                  | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_sm_occupancy`                | SM occupancy fraction (0.0–1.0); DCGM field 1003                                                               | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_tensor_active_ratio`         | Any tensor pipe active fraction (0.0–1.0); DCGM field 1004                                                     | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_tensor_hmma_active_ratio`    | HMMA tensor pipe active fraction (0.0–1.0)                                                                     | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_tensor_imma_active_ratio`    | IMMA tensor pipe active fraction (0.0–1.0)                                                                     | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_tensor_dfma_active_ratio`    | DFMA tensor pipe active fraction (0.0–1.0)                                                                     | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_fp64_active_ratio`           | FP64 pipe active fraction (0.0–1.0); DCGM field 1006                                                           | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_fp32_active_ratio`           | FP32 pipe active fraction (0.0–1.0); DCGM field 1007                                                           | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_fp16_active_ratio`           | FP16 pipe active fraction (0.0–1.0); DCGM field 1008                                                           | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_integer_active_ratio`        | Integer pipe active fraction (0.0–1.0)                                                                         | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_memory_bandwidth_utilization`| DRAM bandwidth utilization fraction (0.0–1.0); DCGM field 1005                                                 | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_pcie_tx_bytes_per_second`    | PCIe transmit throughput; DCGM field 1009                                                                      | bytes/s | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                       |
+| `all_smi_gpu_pcie_rx_bytes_per_second`    | PCIe receive throughput; DCGM field 1010                                                                       | bytes/s | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                       |
+| `all_smi_gpu_nvlink_tx_bytes_per_second`  | NVLink transmit throughput (total); DCGM field 1011                                                            | bytes/s | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                       |
+| `all_smi_gpu_nvlink_rx_bytes_per_second`  | NVLink receive throughput (total); DCGM field 1012                                                             | bytes/s | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                       |
+| `all_smi_gpu_nvdec_active_ratio`          | Mean NVDEC instance utilization (0.0–1.0)                                                                      | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_nvjpg_active_ratio`          | Mean NVJPG instance utilization (0.0–1.0)                                                                      | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
+| `all_smi_gpu_nvofa_active_ratio`          | Mean NVOFA instance utilization (0.0–1.0)                                                                      | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `source`                         |
 
 **Label values for `all_smi_nvlink_remote_device_type`:**
 
@@ -312,11 +329,20 @@ Extended NVIDIA hardware detail metrics (NUMA topology, GSP firmware, NvLink top
 | `link_index` | `"0"`, `"1"`, …                         | NvLink port index on the GPU                      |
 | `remote_type`| `"gpu"`, `"switch"`, `"ibmnpu"`, `"unknown"` | Classification of the remote endpoint        |
 
+**`source` label values (GPM family):**
+
+| Value    | Meaning                                              |
+|----------|------------------------------------------------------|
+| `gpm`    | NVML GPM two-sample collector (Hopper+)              |
+| `dcgm`   | In-process DCGM plugin (`liball_smi_dcgm.so`)        |
+| `dcgmi`  | Agentless SSH `dcgmi dmon` shim                      |
+| `amd`    | AMD `gpu_metrics` / GRBM path                        |
+
 **Notes:**
 - `all_smi_gpu_numa_node_id`: NVML reports `-1` for GPUs without a NUMA attachment; this value is canonicalised to `None` and the metric is omitted rather than emitting a negative number.
 - `all_smi_gpu_gsp_firmware_version_info`: the `version` label carries a string such as `"550.54.15"`. Because the version is static for the lifetime of the driver, it is cached after the first successful NVML call.
 - `all_smi_nvlink_remote_device_type`: one metric row is emitted per active NvLink. A GPU with no active links produces no rows for this metric family.
-- `all_smi_gpu_sm_occupancy` and `all_smi_gpu_memory_bandwidth_utilization`: GPM requires a two-sample handshake before values are available. Until the handshake completes the exporter holds `None` for both fields and emits nothing, preventing spurious zero readings. These metrics are currently plumbing only — values are populated on Hopper and later hardware when the GPM handshake succeeds.
+- GPM ratios require a two-sample handshake. The first poll stores a sample and emits nothing; subsequent polls publish ratios/rates. Unknown fields stay absent (never `0`). Disable the NVML GPM path with `ALL_SMI_NVIDIA_DISABLE_GPM=1` (used to exercise DCGM fallbacks).
 - To simulate the full set of extended hardware detail metrics (including the thermal thresholds and `performance_state` listed in the NVIDIA GPU Specific Metrics table above) in development/testing without a modern NVIDIA driver, set `ALL_SMI_MOCK_HARDWARE_DETAILS=1` when running with the `mock` feature. When unset, the mock omits these families to simulate an older driver that does not expose the underlying NVML APIs.
 
 ### NVIDIA vGPU Metrics

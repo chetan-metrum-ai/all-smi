@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -189,20 +191,114 @@ impl NvLinkRemoteType {
 
 /// Optional GPU Performance Monitoring (GPM) metrics snapshot. Populated
 /// only when the device reports `gpm_support() == true` (Hopper+ on a
-/// driver that exposes the GPM family). All fields are `Option<f32>` so
-/// individual metric failures do not invalidate the rest of the snapshot.
+/// driver that exposes the GPM family), or later via DCGM / shim fallbacks
+/// with [`GpmMetrics::source`] recording which path won. All scalar fields
+/// are `Option` so individual metric failures do not invalidate the rest.
 ///
-/// Values are expressed as a fraction in `[0.0, 1.0]` to match Prometheus'
-/// convention for utilization gauges — the NVML `*_UTIL` family reports
-/// percentages which the reader divides by 100 on the way in.
+/// Ratio fields are fractions in `[0.0, 1.0]` (NVML percent ÷ 100). Rate
+/// fields are bytes per second. Omitted (`None`) means unavailable — never
+/// substitute `0` for unknown (issue #325).
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Default)]
 pub struct GpmMetrics {
+    /// Graphics engine active fraction (`GraphicsUtil` / 100). Aligns with
+    /// nvidia-smi GPU-Util. `None` when unsupported or unsampled.
+    #[serde(default)]
+    pub graphics_active: Option<f32>,
+    /// SM active fraction (`SmUtil` / 100). DCGM field 1002.
+    #[serde(default)]
+    pub sm_active: Option<f32>,
     /// Fraction of warps active vs theoretical maximum, averaged across
-    /// all SMs. Maps to `NVML_GPM_METRIC_SM_OCCUPANCY` / 100.
+    /// all SMs. Maps to `NVML_GPM_METRIC_SM_OCCUPANCY` / 100. DCGM 1003.
     pub sm_occupancy: Option<f32>,
+    /// Any tensor pipe active fraction. DCGM 1004.
+    #[serde(default)]
+    pub tensor_active: Option<f32>,
+    #[serde(default)]
+    pub tensor_hmma_active: Option<f32>,
+    #[serde(default)]
+    pub tensor_imma_active: Option<f32>,
+    #[serde(default)]
+    pub tensor_dfma_active: Option<f32>,
+    /// DCGM 1006.
+    #[serde(default)]
+    pub fp64_active: Option<f32>,
+    /// DCGM 1007.
+    #[serde(default)]
+    pub fp32_active: Option<f32>,
+    /// DCGM 1008.
+    #[serde(default)]
+    pub fp16_active: Option<f32>,
+    #[serde(default)]
+    pub integer_active: Option<f32>,
     /// Fraction of memory bandwidth in use, averaged across the polling
-    /// window. Maps to `NVML_GPM_METRIC_DRAM_BW_UTIL` / 100.
+    /// window. Maps to `NVML_GPM_METRIC_DRAM_BW_UTIL` / 100. DCGM 1005.
     pub memory_bandwidth_utilization: Option<f32>,
+    /// PCIe TX bytes/sec. DCGM 1009.
+    #[serde(default)]
+    pub pcie_tx_bytes_per_sec: Option<f64>,
+    /// PCIe RX bytes/sec. DCGM 1010.
+    #[serde(default)]
+    pub pcie_rx_bytes_per_sec: Option<f64>,
+    /// NVLink TX bytes/sec (total). DCGM 1011.
+    #[serde(default)]
+    pub nvlink_tx_bytes_per_sec: Option<f64>,
+    /// NVLink RX bytes/sec (total). DCGM 1012.
+    #[serde(default)]
+    pub nvlink_rx_bytes_per_sec: Option<f64>,
+    /// Mean NVDEC instance utilization (0.0–1.0).
+    #[serde(default)]
+    pub nvdec_active: Option<f32>,
+    /// Mean NVJPG instance utilization (0.0–1.0).
+    #[serde(default)]
+    pub nvjpg_active: Option<f32>,
+    /// Mean NVOFA instance utilization (0.0–1.0).
+    #[serde(default)]
+    pub nvofa_active: Option<f32>,
+    /// Which collector populated this snapshot. `None` when unknown/legacy.
+    #[serde(default)]
+    pub source: Option<TelemetrySource>,
+}
+
+/// Origin of a fine-grained accelerator telemetry field.
+///
+/// Serialised as lowercase labels for Prometheus (`source="gpm"`) and JSON.
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum TelemetrySource {
+    /// NVML GPM two-sample path (Hopper+).
+    #[default]
+    Gpm,
+    /// In-process DCGM plugin (`liball_smi_dcgm.so`).
+    Dcgm,
+    /// Agentless SSH `dcgmi dmon` shim.
+    DcgmiShim,
+    /// AMD `gpu_metrics` / GRBM path.
+    AmdGpuMetrics,
+}
+
+impl TelemetrySource {
+    /// Stable Prometheus / parser label.
+    pub fn as_label(self) -> &'static str {
+        match self {
+            Self::Gpm => "gpm",
+            Self::Dcgm => "dcgm",
+            Self::DcgmiShim => "dcgmi",
+            Self::AmdGpuMetrics => "amd",
+        }
+    }
+
+    /// Inverse of [`TelemetrySource::as_label`]. Unknown inputs map to
+    /// [`TelemetrySource::Gpm`] only when empty; otherwise `None` so the
+    /// parser can leave `source` unset rather than guess.
+    pub fn from_label(value: &str) -> Option<Self> {
+        match value {
+            "gpm" => Some(Self::Gpm),
+            "dcgm" => Some(Self::Dcgm),
+            "dcgmi" => Some(Self::DcgmiShim),
+            "amd" => Some(Self::AmdGpuMetrics),
+            _ => None,
+        }
+    }
 }
 
 /// Proximity classification for the current GPU temperature relative to the

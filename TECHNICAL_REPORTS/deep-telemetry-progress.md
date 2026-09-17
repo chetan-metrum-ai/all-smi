@@ -66,3 +66,33 @@ Policy: SKIP when no NVIDIA GPU; DCGM absence is WARN (never FAIL). Filter with 
 ### Open questions
 
 - Hollow harness: how to push nvidia-smi GPU-Util near 100% on H100 while keeping SM_ACTIVE ≤ 0.02 (possible follow-up before P1 parity tightening).
+
+## P1 — real GPM (two-sample) + full field set
+
+### Status
+
+Complete on Shadeform H100 (pending PR merge).
+
+### Changes
+
+- `src/device/readers/nvidia_gpm.rs`: two-sample collector with per-UUID handle cache; `ALL_SMI_NVIDIA_DISABLE_GPM`; PCIe/NVLink rates scaled MB/s → bytes/s
+- Extended `GpmMetrics` + `TelemetrySource`; Prometheus family with `source=` label
+- Surfaces: exporter, metrics parser, mock, TUI GPM row, filter DSL, `telemetry_surface_completeness`, `API.md`
+- First poll returns `None`; subsequent polls populate ratios/rates (never invent zeros)
+
+### Live hollow check (2026-09-17T025156Z)
+
+| Metric | all-smi GPM | DCGM |
+|--------|-------------|------|
+| sm_active / SMACT (1002) | mean 0.00104 | mean 0.001 |
+| graphics_active / GRACT | mean 0.272 | ~0.31 |
+| nvidia-smi util | ~31% | — |
+
+`gpm_parity` live test: **pass** (±0.05).
+
+### Acceptance
+
+- [x] `gpm_parity` ±0.05 vs DCGM (hollow)
+- [x] `telemetry_surface_completeness` green
+- [x] first poll `None`, later polls populated on H100
+- [ ] PR opened against fork `main`

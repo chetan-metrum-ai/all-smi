@@ -18,17 +18,18 @@ for mode in "${MODES[@]}"; do
   echo "=== parity mode=${mode} ==="
   mkdir -p "${OUT}/${mode}"
 
-  # Start workload on the GPU box
-  gpu_run bash -lc "pkill -f hollow_util.py || true; nohup ~/venv/bin/python ~/all-smi/scripts/dev/hollow_util.py ${mode} > /tmp/hollow_${mode}.log 2>&1 & echo \$!"
+  # Start workload on the GPU box (avoid nested bash -lc; gpu_run already wraps).
+  gpu_run pkill -f hollow_util.py || true
+  gpu_run bash -c "nohup \$HOME/venv/bin/python \$HOME/all-smi/scripts/dev/hollow_util.py ${mode} > /tmp/hollow_${mode}.log 2>&1 & echo \$!"
   sleep 3
 
-  # Capture DCGM and all-smi side by side (best-effort if all-smi binary missing)
-  gpu_run bash -lc "dcgmi dmon -e ${DCGM_FIELDS} -d 1000 -c 30 > /tmp/dcgm_${mode}.txt 2>&1" \
+  # Capture DCGM then all-smi (sequential; each ~30s window).
+  gpu_run bash -c "dcgmi dmon -e ${DCGM_FIELDS} -d 1000 -c 30 > /tmp/dcgm_${mode}.txt 2>&1" \
     || echo "WARN: dcgmi dmon failed for ${mode}"
-  gpu_run bash -lc "cd ~/all-smi && (test -x ./target/release/all-smi && ./target/release/all-smi snapshot --format json --include gpu --samples 30 --interval 1 > /tmp/allsmi_${mode}.json 2>&1) || echo 'SKIP all-smi snapshot'" \
-    || true
+  gpu_run bash -c "cd \$HOME/all-smi && ./target/release/all-smi snapshot --format json --include gpu --samples 30 --interval 1 > /tmp/allsmi_${mode}.json 2>&1" \
+    || echo "WARN: all-smi snapshot failed for ${mode}"
 
-  gpu_run bash -lc "pkill -f hollow_util.py || true"
+  gpu_run pkill -f hollow_util.py || true
 
   # Pull captures locally
   gpu_run cat "/tmp/dcgm_${mode}.txt" > "${OUT}/${mode}/dcgm_dmon.txt" || true
