@@ -1,0 +1,3 @@
+host: gengar
+date: 2026-09-17T13:37:51Z
+all-smi 0.26.3

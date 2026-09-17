@@ -1,0 +1,7 @@
+v0.26.3-metrum.2 Nucbox (gengar) no-GPU smoke
+- Removed apt package all-smi 0.23.0-1~noble1; PATH clean
+- Unpacked published all-smi-linux-x86_64.tar.gz (sha256 OK)
+- ./all-smi --version => 0.26.3
+- doctor nvidia.gpm/dcgm => 4 SKIP (no GPU), exit 0
+- help + config print OK
+- Shadeform H100 fea307ef-… deleted; .shadeform-state.json cleared

@@ -1,0 +1,43 @@
+Command-line utility for monitoring GPU hardware. It provides a real-time view of GPU utilization, memory usage, temperature, power consumption, and other metrics.
+
+Usage: all-smi [OPTIONS] [COMMAND]
+
+Commands:
+  api       Run in API mode, exposing metrics in Prometheus format
+  local     Run in local mode, monitoring local GPUs/NPUs. (default)
+  view      Run in remote view mode, monitoring remote nodes via API endpoints
+  snapshot  Collect a one-shot machine-readable snapshot of hardware state
+  record    Record a live metric stream to an NDJSON file for later replay
+  doctor    Run self-diagnosis checks and optionally produce a support bundle
+  config    Inspect, initialise, or validate the TOML configuration file. See `all-smi config --help` for subcommands
+  service   Install and control `all-smi api` as a supervised background service
+  help      Print this message or the help of the given subcommand(s)
+
+Options:
+      --config <PATH>  Override the default TOML config file path. When omitted, the loader probes the platform-appropriate locations (run `all-smi config path` to print the resolved location, or see the "Configuration file" block at the bottom of this help text). A missing or malformed file passed explicitly here is a hard error; implicit discovery silently falls back to defaults
+  -h, --help           Print help
+  -V, --version        Print version
+
+Configuration file:
+  Optional TOML file. Precedence: CLI flags > env vars > config file > built-in defaults.
+  Active path (this platform):
+    /home/cgadgil/.config/all-smi/config.toml   (not found)
+  Also searched:
+    /etc/all-smi/config.toml   (not found)
+  Inspect:  all-smi config path   Init:  all-smi config init   Print merged:  all-smi config print
+  Override path with --config <PATH>.
+
+Energy Session (TUI):
+  Shows accumulated energy (kWh), avg power, and estimated cost since the
+  process started. Press R in the TUI to reset the session counter (the
+  Prometheus all_smi_energy_joules_total counter is unaffected).
+
+  Configure via [energy] in the TOML config (see `all-smi config path`
+  for the active path) or these environment variables (override the
+  config file):
+    ALL_SMI_ENERGY_PRICE         $/kWh price (default 0.12; invalid hides cost)
+    ALL_SMI_ENERGY_CURRENCY      Display currency code (default USD)
+    ALL_SMI_ENERGY_NO_COST=1     Hide cost column; still show kWh
+    ALL_SMI_ENERGY_WAL_PATH      WAL file path (default <platform cache dir>/all-smi/energy-wal.bin)
+    ALL_SMI_ENERGY_NO_WAL=1      Disable disk WAL (in-memory counters only)
+    ALL_SMI_ENERGY_GAP_SECONDS   Gap threshold for trapezoid→hold-last (1..=3600, default 10)

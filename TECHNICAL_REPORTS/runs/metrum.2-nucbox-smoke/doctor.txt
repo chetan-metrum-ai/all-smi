@@ -1,0 +1,10 @@
+all-smi doctor — 0.26.3
+Running 4 checks…
+
+SKIP nvidia.dcgm.hostengine           no NVIDIA GPU visible to `nvidia-smi -L`; on Windows the same answer comes from an unelevated shell or from an external GPU that is currently detached. Re-run elevated, or with the GPU attached, if one is expected
+SKIP nvidia.dcgm.library              no NVIDIA GPU visible to `nvidia-smi -L`; on Windows the same answer comes from an unelevated shell or from an external GPU that is currently detached. Re-run elevated, or with the GPU attached, if one is expected
+SKIP nvidia.dcgm.prof_module          no NVIDIA GPU visible to `nvidia-smi -L`; on Windows the same answer comes from an unelevated shell or from an external GPU that is currently detached. Re-run elevated, or with the GPU attached, if one is expected
+SKIP nvidia.gpm.supported             no NVIDIA GPU visible to `nvidia-smi -L`; on Windows the same answer comes from an unelevated shell or from an external GPU that is currently detached. Re-run elevated, or with the GPU attached, if one is expected
+
+Summary: 0 pass, 0 warn, 0 fail, 4 skipped
+Exit code: 0

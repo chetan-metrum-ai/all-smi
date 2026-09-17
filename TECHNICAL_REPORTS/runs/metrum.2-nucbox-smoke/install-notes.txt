@@ -1,0 +1,7 @@
+purged: apt all-smi 0.23.0-1~noble1
+PATH all-smi after purge: none
+release dir: /home/cgadgil/all-smi-release-metrum.2
+sha256: OK (verified at unpack)
+-rwxr-xr-x 1 cgadgil cgadgil 10990384 Sep 17 13:02 /home/cgadgil/all-smi-release-metrum.2/all-smi
+-rwxr-xr-x 1 cgadgil cgadgil   614344 Sep 17 13:02 /home/cgadgil/all-smi-release-metrum.2/liball_smi_amd.so
+-rwxr-xr-x 1 cgadgil cgadgil   308344 Sep 17 13:02 /home/cgadgil/all-smi-release-metrum.2/liball_smi_dcgm.so

@@ -159,7 +159,7 @@ Complete (merged via PR #4).
 
 ## Release v0.26.3-metrum.2
 
-Tagged on fork `main` after P3+P4. Shadeform H100 left running until explicitly deleted.
+Tagged on fork `main` after P3+P4.
 
 ### Release smoke (Shadeform H100)
 
@@ -171,3 +171,15 @@ Published `all-smi-linux-x86_64.tar.gz` unpacked on the live box (`~/all-smi-rel
 - `ALL_SMI_NVIDIA_DISABLE_GPM=1` + `ALL_SMI_DCGM_PLUGIN=…/liball_smi_dcgm.so`: PROF gauges with `source="dcgm"`
 
 Artifacts: `TECHNICAL_REPORTS/runs/metrum.2-release-smoke/`
+
+### Nucbox smoke (gengar, no GPU)
+
+- Purged apt package `all-smi 0.23.0-1~noble1` so PATH no longer shadowed the fork binary
+- Unpacked published `v0.26.3-metrum.2` linux-x86_64 tarball into `~/all-smi-release-metrum.2/`
+- `./all-smi --version` → `0.26.3`; doctor nvidia.gpm/dcgm → 4 SKIP; help/config print OK
+
+Artifacts: `TECHNICAL_REPORTS/runs/metrum.2-nucbox-smoke/`
+
+### Shadeform teardown
+
+Instance `fea307ef-c176-4343-8965-493f0db1a17a` deleted via `scripts/dev/shadeform.py delete --yes-i-am-sure`; local `.shadeform-state.json` cleared.
