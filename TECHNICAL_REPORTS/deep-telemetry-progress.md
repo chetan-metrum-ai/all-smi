@@ -190,3 +190,20 @@ Instance `fea307ef-c176-4343-8965-493f0db1a17a` deleted via `scripts/dev/shadefo
 - Fix: record `dcgm` in `enabled_features()` + build-config test; `cargo fmt` for `fmt --check`.
 - `scripts/dev/shadeform.py` preference chain: RTXPro6000 → H200 → H100 → L40S (still refuse bare B200).
 - New instance: RTX PRO 6000 Blackwell (`RTXPro6000`, massedcompute), left running until explicit delete.
+
+### Blackwell release smoke (RTXPro6000)
+
+Published `v0.26.3-metrum.2` linux-x86_64 tarball on the live box:
+
+- sha256 OK; doctor nvidia.gpm/dcgm → 4 PASS
+- Default API: `source="gpm"`; with GPM disabled + DCGM plugin: `source="dcgm"`
+- `library_api_test` 25/25 serial and parallel (earlier SIGSEGV not reproduced)
+
+Artifacts: `TECHNICAL_REPORTS/runs/metrum.2-blackwell-smoke/`
+
+### Nucbox PATH (gengar)
+
+- Wrapper at `~/.local/bin/all-smi` → `~/all-smi-release-metrum.2/` (sets `LD_LIBRARY_PATH` + default `ALL_SMI_DCGM_PLUGIN`); not installed to `/usr/bin`
+- `all-smi --version` → `0.26.3`; doctor nvidia.* → 4 SKIP on no-GPU
+
+Upstream lablup PR deferred until further testing.

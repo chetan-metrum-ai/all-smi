@@ -1,0 +1,7 @@
+v0.26.3-metrum.2 release smoke on Shadeform RTXPro6000 (Blackwell Server Edition)
+- sha256 OK; tree includes all-smi, liball_smi_dcgm.so, liball_smi_amd.so
+- doctor nvidia.gpm + nvidia.dcgm: 4 PASS
+- GPM API scrape: sm_active/graphics/hollow with source="gpm"
+- DCGM plugin (ALL_SMI_NVIDIA_DISABLE_GPM=1 + ALL_SMI_DCGM_PLUGIN): same gauges with source="dcgm"
+- library_api_test: 25/25 pass serial and parallel (prior SIGSEGV not reproduced)
+- Instance left running for further testing

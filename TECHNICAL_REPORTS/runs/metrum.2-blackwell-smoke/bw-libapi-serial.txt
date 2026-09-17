@@ -1,0 +1,32 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/library_api_test.rs (target/debug/deps/library_api_test-4395b5cb83dac9ad)
+
+running 25 tests
+test test_allsmi_creation ... ok
+test test_allsmi_drop ... ok
+test test_allsmi_is_send ... ok
+test test_allsmi_is_sync ... ok
+test test_allsmi_with_config ... ok
+test test_chassis_info_does_not_panic ... ok
+test test_config_builder_pattern ... ok
+test test_cpu_index_is_stable_across_consecutive_calls ... ok
+test test_cpu_info_does_not_panic ... ok
+test test_device_type_display ... ok
+test test_error_display ... ok
+test test_error_is_send_sync ... ok
+test test_get_cpu_by_index_hit_and_miss ... ok
+test test_get_gpu_by_uuid_hit_roundtrips_for_first_device ... ok
+test test_get_gpu_by_uuid_miss_returns_none ... ok
+test test_gpu_info_does_not_panic ... ok
+test test_helper_methods ... ok
+test test_memory_index_is_stable_across_consecutive_calls ... ok
+test test_memory_info_does_not_panic ... ok
+test test_multiple_allsmi_instances ... ok
+test test_prelude_exports ... ok
+test test_process_info_does_not_panic ... ok
+test test_refresh_cpu_in_place ... ok
+test test_refresh_gpu_unknown_uuid_returns_false_and_does_not_mutate ... ok
+test test_refresh_memory_in_place ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.19s
+

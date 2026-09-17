@@ -1,0 +1,15 @@
+all_smi_gpu_graphics_active_ratio{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_sm_active_ratio{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_sm_occupancy{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_tensor_active_ratio{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_fp64_active_ratio{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_fp32_active_ratio{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_fp16_active_ratio{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_memory_bandwidth_utilization{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_pcie_tx_bytes_per_second{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 1809408
+all_smi_gpu_pcie_rx_bytes_per_second{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 1997824
+all_smi_gpu_nvlink_tx_bytes_per_second{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+all_smi_gpu_nvlink_rx_bytes_per_second{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0
+# HELP all_smi_gpu_hollow_utilization_ratio Hollow utilization: graphics_active - sm_active (clamped ≥ 0); omitted when either input is unavailable
+# TYPE all_smi_gpu_hollow_utilization_ratio gauge
+all_smi_gpu_hollow_utilization_ratio{gpu="NVIDIA RTX PRO 6000 Blackwell Server Edition", instance="shadecloud", gpu_uuid="GPU-4784080e-8637-53c9-c8c3-db12ed0e2e05", gpu_index="0", source="dcgm"} 0

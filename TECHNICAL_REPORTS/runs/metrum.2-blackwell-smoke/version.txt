@@ -1,0 +1,4 @@
+host: shadecloud (RTX PRO 6000 Blackwell Server Edition)
+instance: 49b9fabb-50d1-48dd-ae6e-a25cb017e2da
+date: 2026-09-17T15:05:03Z
+release: v0.26.3-metrum.2 all-smi-linux-x86_64.tar.gz (sha256 OK)
