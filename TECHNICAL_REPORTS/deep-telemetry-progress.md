@@ -142,7 +142,7 @@ Complete (merged via PR #3).
 
 ### Status
 
-Complete (this PR).
+Complete (merged via PR #4).
 
 ### Changes
 
@@ -150,3 +150,13 @@ Complete (this PR).
 - Plugin dlopens `libdcgm.so.4`, connects to hostengine (embedded fallback), watches PROF_*/XID/remap/throttle
 - `nvidia.rs` merge: fill only `None` GPM fields from DCGM; `Source: <field>=dcgm`
 - Release workflow builds/packages the DCGM `.so` on Linux glibc
+
+### Acceptance
+
+- [x] With `ALL_SMI_NVIDIA_DISABLE_GPM=1`, DCGM fills `sm_active`; with GPM on, `source=gpm`
+- [x] Loader unavailable path does not panic
+- [x] PR #4 merged into fork `main`
+
+## Release v0.26.3-metrum.2
+
+Tagged on fork `main` after P3+P4. Shadeform H100 left running until explicitly deleted.
