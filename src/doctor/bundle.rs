@@ -365,6 +365,10 @@ fn enabled_features() -> Vec<&'static str> {
         // `level_zero_effective`.
         #[cfg(feature = "level_zero")]
         "level_zero",
+        // No-op cargo feature: DCGM sampling lives in all-smi-dcgm-plugin.
+        // Still recorded so support bundles list every declared feature.
+        #[cfg(feature = "dcgm")]
+        "dcgm",
     ];
     if v.is_empty() {
         v.push("none");
@@ -607,6 +611,7 @@ mod tests {
             ("mock", cfg!(feature = "mock")),
             ("furiosa", cfg!(feature = "furiosa")),
             ("level_zero", cfg!(feature = "level_zero")),
+            ("dcgm", cfg!(feature = "dcgm")),
         ] {
             assert_eq!(
                 features.contains(&name),

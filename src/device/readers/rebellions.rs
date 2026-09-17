@@ -473,9 +473,9 @@ fn create_process_info_from_context(ctx: RblnContext) -> ProcessInfo {
         priority: 0,
         nice_value: 0,
         gpu_utilization: 0.0,
-            gpu_mem_util: None,
-            enc_util: None,
-            dec_util: None,
+        gpu_mem_util: None,
+        enc_util: None,
+        dec_util: None,
     }
 }
 

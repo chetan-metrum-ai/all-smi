@@ -390,8 +390,7 @@ impl DeviceRowView for GpuInfo {
             .and_then(|g| g.nvlink_rx_bytes_per_sec)
     }
     fn throttle_matches(&self, reason: &str) -> Option<bool> {
-        self.throttle_reasons
-            .map(|r| r.matches_label(reason))
+        self.throttle_reasons.map(|r| r.matches_label(reason))
     }
     fn throttled_field(&self) -> Option<f64> {
         self.throttle_reasons

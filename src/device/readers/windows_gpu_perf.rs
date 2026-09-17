@@ -669,9 +669,9 @@ pub fn gpu_process_row(
         // per-process figure the way memory does. Left at zero rather
         // than guessed.
         gpu_utilization: 0.0,
-            gpu_mem_util: None,
-            enc_util: None,
-            dec_util: None,
+        gpu_mem_util: None,
+        enc_util: None,
+        dec_util: None,
     }
 }
 

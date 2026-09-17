@@ -78,9 +78,9 @@ fn record_event(uuid: String, xid: u32) {
 
 #[cfg(target_os = "linux")]
 fn xid_watcher_loop() {
+    use nvml_wrapper::Nvml;
     use nvml_wrapper::bitmasks::event::EventTypes;
     use nvml_wrapper::enums::event::XidError;
-    use nvml_wrapper::Nvml;
     use std::thread;
     use std::time::Duration;
 

@@ -587,12 +587,7 @@ impl Alerter {
         }
     }
 
-    fn evaluate_no_tensor(
-        &mut self,
-        gpu: &GpuInfo,
-        now: Instant,
-        out: &mut Vec<AlertTransition>,
-    ) {
+    fn evaluate_no_tensor(&mut self, gpu: &GpuInfo, now: Instant, out: &mut Vec<AlertTransition>) {
         if !self.config.no_tensor_warn {
             return;
         }
@@ -822,8 +817,7 @@ impl Alerter {
             return;
         };
         let condition = reasons.is_throttled();
-        let warn_after =
-            std::time::Duration::from_secs(self.config.throttle_warn_mins as u64 * 60);
+        let warn_after = std::time::Duration::from_secs(self.config.throttle_warn_mins as u64 * 60);
         let key = RuleKey {
             device_id: device_id(gpu),
             rule: RuleKind::ThrottleSustained,
@@ -1284,7 +1278,10 @@ mod tests {
         });
         let t0 = Instant::now();
         let first = a.evaluate_at(&[g.clone()], t0);
-        assert!(first.is_empty(), "should not fire before sustain: {first:?}");
+        assert!(
+            first.is_empty(),
+            "should not fire before sustain: {first:?}"
+        );
         let later = a.evaluate_at(&[g], t0 + std::time::Duration::from_secs(61));
         assert_eq!(later.len(), 1);
         assert_eq!(later[0].rule, RuleKind::HollowUtilization);

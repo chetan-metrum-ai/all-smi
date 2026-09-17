@@ -112,9 +112,9 @@ impl ParsedProcessRow {
             gpu_memory_bytes: process.used_memory,
             cpu_pct_tenths,
             start_time_seconds: start_seconds,
-            sm_util_pct: process.gpu_mem_util.map(|_| {
-                process.gpu_utilization.round().clamp(0.0, 100.0) as u32
-            }),
+            sm_util_pct: process
+                .gpu_mem_util
+                .map(|_| process.gpu_utilization.round().clamp(0.0, 100.0) as u32),
         }
     }
 }
@@ -378,8 +378,7 @@ impl MetricsParser {
                 let tenths = (value.max(0.0) * 10.0).round() as u32;
                 row.cpu_pct_tenths = tenths;
             }
-            "process_gpu_sm_active_ratio"
-                if value.is_finite() && (0.0..=1.0).contains(&value) => {
+            "process_gpu_sm_active_ratio" if value.is_finite() && (0.0..=1.0).contains(&value) => {
                 row.sm_util_pct = Some((value * 100.0).round() as u32);
             }
             _ => {}

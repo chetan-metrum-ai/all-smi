@@ -58,9 +58,9 @@ pub fn get_all_processes(system: &System, gpu_pids: &HashSet<u32>) -> Vec<Proces
             priority,
             nice_value,
             gpu_utilization: 0.0, // Will be set by GPU-specific code
-        gpu_mem_util: None,
-        enc_util: None,
-        dec_util: None,
+            gpu_mem_util: None,
+            enc_util: None,
+            dec_util: None,
         };
 
         processes.push(process_info);
@@ -132,9 +132,9 @@ pub fn update_process_cache(
                 priority,
                 nice_value,
                 gpu_utilization: 0.0,
-            gpu_mem_util: None,
-            enc_util: None,
-            dec_util: None,
+                gpu_mem_util: None,
+                enc_util: None,
+                dec_util: None,
             };
             cache.insert(pid_u32, process_info);
         }

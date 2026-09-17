@@ -23,7 +23,6 @@
 //! - More stable (no external process)
 //! - Additional metrics (actual temperature, system power)
 
-use std::collections::HashMap;
 use crate::device::common::command_executor::execute_command_default;
 use crate::device::macos_native::{
     NativeMetricsManager, get_native_metrics_manager, initialize_native_metrics_manager,
@@ -34,6 +33,7 @@ use crate::device::{GpuInfo, GpuReader, ProcessInfo};
 use crate::utils::get_hostname;
 use chrono::Local;
 use once_cell::sync::{Lazy, OnceCell};
+use std::collections::HashMap;
 use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},

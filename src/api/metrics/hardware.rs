@@ -390,13 +390,7 @@ impl<'a> HardwareMetricExporter<'a> {
                     emitted = true;
                 }
                 let base = Self::base_labels(row);
-                let labels = [
-                    base[0],
-                    base[1],
-                    base[2],
-                    base[3],
-                    ("reason", reason),
-                ];
+                let labels = [base[0], base[1], base[2], base[3], ("reason", reason)];
                 builder.metric("all_smi_gpu_throttle_reason", &labels, 1);
             }
         }
@@ -600,10 +594,7 @@ impl<'a> HardwareMetricExporter<'a> {
 }
 
 fn gpm_source_label(metrics: &GpmMetrics) -> &'static str {
-    metrics
-        .source
-        .unwrap_or(TelemetrySource::Gpm)
-        .as_label()
+    metrics.source.unwrap_or(TelemetrySource::Gpm).as_label()
 }
 
 fn emit_gpm_ratio<'a, F>(
@@ -629,13 +620,7 @@ fn emit_gpm_ratio<'a, F>(
         }
         let base = HardwareMetricExporter::base_labels(row);
         let source = gpm_source_label(metrics);
-        let labels = [
-            base[0],
-            base[1],
-            base[2],
-            base[3],
-            ("source", source),
-        ];
+        let labels = [base[0], base[1], base[2], base[3], ("source", source)];
         builder.metric(name, &labels, value);
     }
 }
@@ -663,13 +648,7 @@ fn emit_gpm_rate<'a, F>(
         }
         let base = HardwareMetricExporter::base_labels(row);
         let source = gpm_source_label(metrics);
-        let labels = [
-            base[0],
-            base[1],
-            base[2],
-            base[3],
-            ("source", source),
-        ];
+        let labels = [base[0], base[1], base[2], base[3], ("source", source)];
         builder.metric(name, &labels, value);
     }
 }
@@ -687,7 +666,10 @@ fn has_any_hw_detail(gpu: &GpuInfo) -> bool {
         || gpu.energy_hw_millijoules.is_some()
         || gpu.remapped_rows.is_some()
         || !gpu.nvlink_errors.is_empty()
-        || gpu.utilization_samples.as_ref().is_some_and(|s| !s.is_empty())
+        || gpu
+            .utilization_samples
+            .as_ref()
+            .is_some_and(|s| !s.is_empty())
         || !gpu.xid_event_counts.is_empty()
 }
 

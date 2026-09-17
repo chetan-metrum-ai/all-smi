@@ -145,9 +145,8 @@ fn gpm_parity_live_against_captures() {
         .or_else(|| allsmi_gpm_mean(&hollow_allsmi, "sm_occupancy"));
     eprintln!("hollow all-smi gpm.sm_active mean = {sm_active_allsmi:?}");
 
-    let allsmi = sm_active_allsmi.expect(
-        "P1: all-smi GPM sm_active must be populated on Hopper after two polls",
-    );
+    let allsmi = sm_active_allsmi
+        .expect("P1: all-smi GPM sm_active must be populated on Hopper after two polls");
     if let Some(dcgm) = sm_active_dcgm {
         // DCGM reports percent (0-100) in some captures and ratio (0-1) in
         // others; normalise to ratio before comparing.

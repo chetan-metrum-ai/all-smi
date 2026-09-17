@@ -15,14 +15,12 @@ use libloading::Library;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
+use crate::device::GpuInfo;
 use crate::device::readers::dcgm_plugin_api::{
     DCGM_PLUGIN_ABI_VERSION, DCGM_PLUGIN_ENTRY_SYMBOL, DCGM_PLUGIN_WIRE_FORMAT, DcgmPluginApiV1,
     DcgmPluginBuffer,
 };
-use crate::device::types::{
-    GpmMetrics, RemappedRowsInfo, TelemetrySource, ThrottleReasons,
-};
-use crate::device::GpuInfo;
+use crate::device::types::{GpmMetrics, RemappedRowsInfo, TelemetrySource, ThrottleReasons};
 
 pub const DCGM_PLUGIN_ENV: &str = "ALL_SMI_DCGM_PLUGIN";
 pub const DCGM_PLUGIN_FILENAME: &str = "liball_smi_dcgm.so";
@@ -136,7 +134,10 @@ pub fn merge_into_gpus(gpus: &mut [GpuInfo]) {
 }
 
 fn sample_map(plugin: &LoadedPlugin) -> Result<HashMap<String, DcgmGpuSample>, String> {
-    let mut session = plugin.session.lock().map_err(|_| "dcgm session lock poisoned")?;
+    let mut session = plugin
+        .session
+        .lock()
+        .map_err(|_| "dcgm session lock poisoned")?;
     if session.is_null() {
         let create = plugin
             .api
@@ -151,10 +152,7 @@ fn sample_map(plugin: &LoadedPlugin) -> Result<HashMap<String, DcgmGpuSample>, S
     }
     let handle = *session;
     let envelope: SampleEnvelope = read_buffer(&plugin.api, |out| {
-        let sample = plugin
-            .api
-            .sample_json
-            .expect("validated function pointer");
+        let sample = plugin.api.sample_json.expect("validated function pointer");
         // SAFETY: handle owned by this plugin; out points to live buffer desc.
         unsafe { sample(handle, out) }
     })?;
@@ -252,8 +250,7 @@ fn merge_sample(gpu: &mut GpuInfo, sample: &DcgmGpuSample) {
         && let Some(t) = sample.throttle_reasons
     {
         gpu.throttle_reasons = Some(t);
-        gpu.detail
-            .insert("Source: throttle".into(), "dcgm".into());
+        gpu.detail.insert("Source: throttle".into(), "dcgm".into());
     }
     if gpu.remapped_rows.is_none()
         && let Some(r) = sample.remapped_rows
@@ -505,7 +502,9 @@ fn read_buffer<T: DeserializeOwned>(
     let status = fill(&mut buffer);
     if status != 0 {
         free_buffer(api, &mut buffer);
-        return Err(format!("DCGM plugin buffer call failed with status {status}"));
+        return Err(format!(
+            "DCGM plugin buffer call failed with status {status}"
+        ));
     }
     if buffer.ptr.is_null() || buffer.len == 0 {
         free_buffer(api, &mut buffer);
@@ -553,6 +552,9 @@ mod tests {
         let mut detail = HashMap::new();
         assert!(fill_f32(&mut dst, Some(0.1), &mut detail, "sm_active"));
         assert_eq!(dst, Some(0.1));
-        assert_eq!(detail.get("Source: sm_active").map(String::as_str), Some("dcgm"));
+        assert_eq!(
+            detail.get("Source: sm_active").map(String::as_str),
+            Some("dcgm")
+        );
     }
 }

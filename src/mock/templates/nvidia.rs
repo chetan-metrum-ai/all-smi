@@ -476,9 +476,7 @@ impl NvidiaMockGenerator {
                     "gpu=\"{}\", instance=\"{}\", gpu_uuid=\"{}\", gpu_index=\"{i}\"",
                     self.gpu_name, self.instance_name, gpu.uuid
                 );
-                template.push_str(&format!(
-                    "all_smi_gpu_remapping_pending{{{labels}}} 1\n"
-                ));
+                template.push_str(&format!("all_smi_gpu_remapping_pending{{{labels}}} 1\n"));
                 template.push_str(&format!(
                     "all_smi_gpu_throttle_reason{{{labels},reason=\"sw_power_cap\"}} 1\n"
                 ));

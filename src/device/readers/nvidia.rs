@@ -24,13 +24,11 @@ use crate::device::readers::nvidia_extras::{
     collect_process_util_by_pid, collect_remapped_rows, collect_throttle_reasons,
     collect_utilization_samples,
 };
-use crate::device::readers::nvidia_xid::{ensure_xid_watcher_started, xid_counts_for};
 use crate::device::readers::nvidia_gpm::GpmState;
-use crate::device::readers::nvidia_hardware::{
-    HardwareDetailCache, collect_nvlink_remote_devices,
-};
+use crate::device::readers::nvidia_hardware::{HardwareDetailCache, collect_nvlink_remote_devices};
 use crate::device::readers::nvidia_mig::collect_mig_info;
 use crate::device::readers::nvidia_vgpu::collect_vgpu_info;
+use crate::device::readers::nvidia_xid::{ensure_xid_watcher_started, xid_counts_for};
 use crate::device::types::{GpuInfo, MigGpuInfo, ProcessInfo, VgpuHostInfo};
 use crate::utils::{get_hostname, with_global_system};
 use chrono::Local;
@@ -328,8 +326,8 @@ impl NvidiaGpuReader {
                     let energy_hw_millijoules = collect_energy_hw_millijoules(&device);
                     let remapped_rows = collect_remapped_rows(&device);
                     let nvlink_errors = collect_nvlink_errors(&device);
-                    let utilization_samples = collect_utilization_samples(&device, None)
-                        .map(|(samples, _)| samples);
+                    let utilization_samples =
+                        collect_utilization_samples(&device, None).map(|(samples, _)| samples);
 
                     ensure_xid_watcher_started();
                     let uuid = device.uuid().unwrap_or_else(|_| format!("GPU-{i}"));
@@ -957,9 +955,9 @@ fn get_gpu_processes_nvidia_smi() -> (Vec<ProcessInfo>, HashSet<u32>) {
                 priority: 0,
                 nice_value: 0,
                 gpu_utilization: 0.0,
-            gpu_mem_util: None,
-            enc_util: None,
-            dec_util: None,
+                gpu_mem_util: None,
+                enc_util: None,
+                dec_util: None,
             });
         }
     }

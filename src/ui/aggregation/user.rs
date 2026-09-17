@@ -270,7 +270,13 @@ pub fn aggregate_users(snapshots: &[HostSnapshot]) -> UserAggregationResult {
     let mut users: Vec<UserAggregate> = user_scratch
         .into_iter()
         .map(|(user, scratch)| {
-            scratch.finalize(user, &total_vram_by_gpu, &total_sm_by_gpu, &gpu_has_sm, &power_by_gpu)
+            scratch.finalize(
+                user,
+                &total_vram_by_gpu,
+                &total_sm_by_gpu,
+                &gpu_has_sm,
+                &power_by_gpu,
+            )
         })
         .collect();
 

@@ -19,16 +19,16 @@ use crate::bindings::{
     DCGM_CLOCKS_EVENT_REASON_SW_POWER_CAP, DCGM_CLOCKS_EVENT_REASON_SW_THERMAL,
     DCGM_CLOCKS_EVENT_REASON_SYNC_BOOST, DCGM_FI_DEV_CLOCK_THROTTLE_REASONS,
     DCGM_FI_DEV_ROW_REMAP_CORRECTABLE_TOTAL, DCGM_FI_DEV_ROW_REMAP_FAILED,
-    DCGM_FI_DEV_ROW_REMAP_PENDING, DCGM_FI_DEV_ROW_REMAP_UNCORRECTABLE_TOTAL,
-    DCGM_FI_DEV_UUID, DCGM_FI_DEV_XID_ERRORS, DCGM_FI_PROF_DRAM_ACTIVE,
-    DCGM_FI_PROF_GR_ENGINE_ACTIVE, DCGM_FI_PROF_NVLINK_RX_BYTES, DCGM_FI_PROF_NVLINK_TX_BYTES,
-    DCGM_FI_PROF_PCIE_RX_BYTES, DCGM_FI_PROF_PCIE_TX_BYTES, DCGM_FI_PROF_PIPE_FP16_ACTIVE,
-    DCGM_FI_PROF_PIPE_FP32_ACTIVE, DCGM_FI_PROF_PIPE_FP64_ACTIVE, DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
-    DCGM_FI_PROF_SM_ACTIVE, DCGM_FI_PROF_SM_OCCUPANCY, DCGM_FP64_BLANK, DCGM_FT_DOUBLE,
-    DCGM_FT_INT64, DCGM_FT_STRING, DCGM_INT64_BLANK, DCGM_MAX_NUM_DEVICES,
-    dcgmConnectV2Params_t, dcgmFieldValue_v1, dcgmHandle_t, dcgmReturn_t,
-    dcgmGroupType_enum_DCGM_GROUP_DEFAULT, dcgmOperationMode_enum_DCGM_OPERATION_MODE_AUTO,
-    dcgmReturn_enum_DCGM_ST_OK, make_dcgm_version,
+    DCGM_FI_DEV_ROW_REMAP_PENDING, DCGM_FI_DEV_ROW_REMAP_UNCORRECTABLE_TOTAL, DCGM_FI_DEV_UUID,
+    DCGM_FI_DEV_XID_ERRORS, DCGM_FI_PROF_DRAM_ACTIVE, DCGM_FI_PROF_GR_ENGINE_ACTIVE,
+    DCGM_FI_PROF_NVLINK_RX_BYTES, DCGM_FI_PROF_NVLINK_TX_BYTES, DCGM_FI_PROF_PCIE_RX_BYTES,
+    DCGM_FI_PROF_PCIE_TX_BYTES, DCGM_FI_PROF_PIPE_FP16_ACTIVE, DCGM_FI_PROF_PIPE_FP32_ACTIVE,
+    DCGM_FI_PROF_PIPE_FP64_ACTIVE, DCGM_FI_PROF_PIPE_TENSOR_ACTIVE, DCGM_FI_PROF_SM_ACTIVE,
+    DCGM_FI_PROF_SM_OCCUPANCY, DCGM_FP64_BLANK, DCGM_FT_DOUBLE, DCGM_FT_INT64, DCGM_FT_STRING,
+    DCGM_INT64_BLANK, DCGM_MAX_NUM_DEVICES, dcgmConnectV2Params_t, dcgmFieldValue_v1,
+    dcgmGroupType_enum_DCGM_GROUP_DEFAULT, dcgmHandle_t,
+    dcgmOperationMode_enum_DCGM_OPERATION_MODE_AUTO, dcgmReturn_enum_DCGM_ST_OK, dcgmReturn_t,
+    make_dcgm_version,
 };
 
 const FIELD_IDS: &[u16] = &[
@@ -63,14 +63,9 @@ type FnConnectV2 = unsafe extern "C" fn(
 type FnStartEmbedded = unsafe extern "C" fn(c_uint, *mut dcgmHandle_t) -> dcgmReturn_t;
 type FnDisconnect = unsafe extern "C" fn(dcgmHandle_t) -> dcgmReturn_t;
 type FnStopEmbedded = unsafe extern "C" fn(dcgmHandle_t) -> dcgmReturn_t;
-type FnGetAllDevices =
-    unsafe extern "C" fn(dcgmHandle_t, *mut c_uint, *mut c_int) -> dcgmReturn_t;
-type FnGroupCreate = unsafe extern "C" fn(
-    dcgmHandle_t,
-    c_uint,
-    *const c_char,
-    *mut usize,
-) -> dcgmReturn_t;
+type FnGetAllDevices = unsafe extern "C" fn(dcgmHandle_t, *mut c_uint, *mut c_int) -> dcgmReturn_t;
+type FnGroupCreate =
+    unsafe extern "C" fn(dcgmHandle_t, c_uint, *const c_char, *mut usize) -> dcgmReturn_t;
 type FnGroupDestroy = unsafe extern "C" fn(dcgmHandle_t, usize) -> dcgmReturn_t;
 type FnFieldGroupCreate = unsafe extern "C" fn(
     dcgmHandle_t,
@@ -80,14 +75,8 @@ type FnFieldGroupCreate = unsafe extern "C" fn(
     *mut usize,
 ) -> dcgmReturn_t;
 type FnFieldGroupDestroy = unsafe extern "C" fn(dcgmHandle_t, usize) -> dcgmReturn_t;
-type FnWatchFields = unsafe extern "C" fn(
-    dcgmHandle_t,
-    usize,
-    usize,
-    c_longlong,
-    f64,
-    c_int,
-) -> dcgmReturn_t;
+type FnWatchFields =
+    unsafe extern "C" fn(dcgmHandle_t, usize, usize, c_longlong, f64, c_int) -> dcgmReturn_t;
 type FnUpdateAllFields = unsafe extern "C" fn(dcgmHandle_t, c_int) -> dcgmReturn_t;
 type FnProfResume = unsafe extern "C" fn(dcgmHandle_t) -> dcgmReturn_t;
 type FnGetLatest = unsafe extern "C" fn(
@@ -120,62 +109,49 @@ struct DcgmFns {
 impl DcgmFns {
     unsafe fn load() -> Result<Self, String> {
         // SAFETY: libdcgm is a system shared library; symbols are resolved below.
-        let lib = unsafe {
-            Library::new("libdcgm.so.4").or_else(|_| Library::new("libdcgm.so"))
-        }
-        .map_err(|e| format!("dlopen libdcgm: {e}"))?;
+        let lib = unsafe { Library::new("libdcgm.so.4").or_else(|_| Library::new("libdcgm.so")) }
+            .map_err(|e| format!("dlopen libdcgm: {e}"))?;
         // SAFETY: symbols match DCGM 4.x ABI; we transmute lifetimes to
         // 'static by keeping Library owned in the same struct.
         unsafe {
             let init = std::mem::transmute::<Symbol<'_, FnInit>, Symbol<'static, FnInit>>(
                 lib.get(b"dcgmInit\0").map_err(|e| e.to_string())?,
             );
-            let shutdown =
-                std::mem::transmute::<Symbol<'_, FnShutdown>, Symbol<'static, FnShutdown>>(
-                    lib.get(b"dcgmShutdown\0").map_err(|e| e.to_string())?,
-                );
-            let connect_v2 =
-                std::mem::transmute::<Symbol<'_, FnConnectV2>, Symbol<'static, FnConnectV2>>(
-                    lib.get(b"dcgmConnect_v2\0").map_err(|e| e.to_string())?,
-                );
+            let shutdown = std::mem::transmute::<Symbol<'_, FnShutdown>, Symbol<'static, FnShutdown>>(
+                lib.get(b"dcgmShutdown\0").map_err(|e| e.to_string())?,
+            );
+            let connect_v2 = std::mem::transmute::<
+                Symbol<'_, FnConnectV2>,
+                Symbol<'static, FnConnectV2>,
+            >(lib.get(b"dcgmConnect_v2\0").map_err(|e| e.to_string())?);
             let start_embedded = std::mem::transmute::<
                 Symbol<'_, FnStartEmbedded>,
                 Symbol<'static, FnStartEmbedded>,
             >(
-                lib.get(b"dcgmStartEmbedded\0")
-                    .map_err(|e| e.to_string())?,
+                lib.get(b"dcgmStartEmbedded\0").map_err(|e| e.to_string())?
             );
-            let disconnect =
-                std::mem::transmute::<Symbol<'_, FnDisconnect>, Symbol<'static, FnDisconnect>>(
-                    lib.get(b"dcgmDisconnect\0").map_err(|e| e.to_string())?,
+            let disconnect = std::mem::transmute::<
+                Symbol<'_, FnDisconnect>,
+                Symbol<'static, FnDisconnect>,
+            >(lib.get(b"dcgmDisconnect\0").map_err(|e| e.to_string())?);
+            let stop_embedded =
+                std::mem::transmute::<Symbol<'_, FnStopEmbedded>, Symbol<'static, FnStopEmbedded>>(
+                    lib.get(b"dcgmStopEmbedded\0").map_err(|e| e.to_string())?,
                 );
-            let stop_embedded = std::mem::transmute::<
-                Symbol<'_, FnStopEmbedded>,
-                Symbol<'static, FnStopEmbedded>,
-            >(
-                lib.get(b"dcgmStopEmbedded\0")
-                    .map_err(|e| e.to_string())?,
-            );
             let get_all_devices = std::mem::transmute::<
                 Symbol<'_, FnGetAllDevices>,
                 Symbol<'static, FnGetAllDevices>,
             >(
-                lib.get(b"dcgmGetAllDevices\0")
-                    .map_err(|e| e.to_string())?,
+                lib.get(b"dcgmGetAllDevices\0").map_err(|e| e.to_string())?
             );
-            let group_create = std::mem::transmute::<
-                Symbol<'_, FnGroupCreate>,
-                Symbol<'static, FnGroupCreate>,
-            >(
-                lib.get(b"dcgmGroupCreate\0").map_err(|e| e.to_string())?,
-            );
-            let group_destroy = std::mem::transmute::<
-                Symbol<'_, FnGroupDestroy>,
-                Symbol<'static, FnGroupDestroy>,
-            >(
-                lib.get(b"dcgmGroupDestroy\0")
-                    .map_err(|e| e.to_string())?,
-            );
+            let group_create =
+                std::mem::transmute::<Symbol<'_, FnGroupCreate>, Symbol<'static, FnGroupCreate>>(
+                    lib.get(b"dcgmGroupCreate\0").map_err(|e| e.to_string())?,
+                );
+            let group_destroy =
+                std::mem::transmute::<Symbol<'_, FnGroupDestroy>, Symbol<'static, FnGroupDestroy>>(
+                    lib.get(b"dcgmGroupDestroy\0").map_err(|e| e.to_string())?,
+                );
             let field_group_create = std::mem::transmute::<
                 Symbol<'_, FnFieldGroupCreate>,
                 Symbol<'static, FnFieldGroupCreate>,
@@ -190,12 +166,10 @@ impl DcgmFns {
                 lib.get(b"dcgmFieldGroupDestroy\0")
                     .map_err(|e| e.to_string())?,
             );
-            let watch_fields = std::mem::transmute::<
-                Symbol<'_, FnWatchFields>,
-                Symbol<'static, FnWatchFields>,
-            >(
-                lib.get(b"dcgmWatchFields\0").map_err(|e| e.to_string())?,
-            );
+            let watch_fields =
+                std::mem::transmute::<Symbol<'_, FnWatchFields>, Symbol<'static, FnWatchFields>>(
+                    lib.get(b"dcgmWatchFields\0").map_err(|e| e.to_string())?,
+                );
             let update_all_fields = std::mem::transmute::<
                 Symbol<'_, FnUpdateAllFields>,
                 Symbol<'static, FnUpdateAllFields>,
@@ -203,21 +177,14 @@ impl DcgmFns {
                 lib.get(b"dcgmUpdateAllFields\0")
                     .map_err(|e| e.to_string())?,
             );
-            let get_latest = std::mem::transmute::<
-                Symbol<'_, FnGetLatest>,
-                Symbol<'static, FnGetLatest>,
-            >(
-                lib.get(b"dcgmGetLatestValuesForFields\0")
-                    .map_err(|e| e.to_string())?,
-            );
-            let prof_resume = lib
-                .get(b"dcgmProfResume\0")
-                .ok()
-                .map(|s| {
-                    std::mem::transmute::<Symbol<'_, FnProfResume>, Symbol<'static, FnProfResume>>(
-                        s,
-                    )
-                });
+            let get_latest =
+                std::mem::transmute::<Symbol<'_, FnGetLatest>, Symbol<'static, FnGetLatest>>(
+                    lib.get(b"dcgmGetLatestValuesForFields\0")
+                        .map_err(|e| e.to_string())?,
+                );
+            let prof_resume = lib.get(b"dcgmProfResume\0").ok().map(|s| {
+                std::mem::transmute::<Symbol<'_, FnProfResume>, Symbol<'static, FnProfResume>>(s)
+            });
             Ok(Self {
                 _lib: lib,
                 init,
@@ -356,9 +323,7 @@ impl Session {
 
         // 100ms update frequency (microseconds).
         let update_freq: c_longlong = 100_000;
-        let st = unsafe {
-            (fns.watch_fields)(handle, group, field_group, update_freq, 60.0, 20)
-        };
+        let st = unsafe { (fns.watch_fields)(handle, group, field_group, update_freq, 60.0, 20) };
         let watched = st == dcgmReturn_enum_DCGM_ST_OK;
         if let Some(ref resume) = fns.prof_resume {
             let _ = unsafe { resume(handle) };
@@ -405,9 +370,7 @@ impl Session {
         let _ = unsafe { (self.fns.update_all_fields)(self.handle, 1) };
         let mut ids = [0u32; DCGM_MAX_NUM_DEVICES as usize];
         let mut count: c_int = 0;
-        let st = unsafe {
-            (self.fns.get_all_devices)(self.handle, ids.as_mut_ptr(), &mut count)
-        };
+        let st = unsafe { (self.fns.get_all_devices)(self.handle, ids.as_mut_ptr(), &mut count) };
         if st != dcgmReturn_enum_DCGM_ST_OK {
             return Err(format!("dcgmGetAllDevices failed: {st}"));
         }

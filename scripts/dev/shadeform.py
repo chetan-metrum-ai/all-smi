@@ -6,7 +6,7 @@ Loads SHADEFORM_API_KEY from env.json in-process and sends it only as the
 X-API-KEY header. Never prints the key, never passes it on a CLI argv.
 
 Subcommands:
-  create   Rent one H100 (fallback H200). Refuse if state already has a live id.
+  create   Rent one GPU box (RTXPro6000 → H200 → H100 → L40S). Refuse if live id.
   status   Print instance status from .shadeform-state.json + API.
   ssh-cmd  Run a remote command over SSH using the project key.
   delete   Tear down the instance (requires --yes-i-am-sure).
@@ -146,21 +146,45 @@ def _os_preference(os_name: str) -> int:
     return 2
 
 
-def pick_instance_type(types: list[dict[str, Any]], prefer: str) -> dict[str, Any]:
-    """Pick cheapest available 1-GPU instance for prefer (H100) then H200.
+# Preference order for create: RTX 6000 Pro Blackwell Server Edition first,
+# then datacenter fallbacks. Bare B200 remains banned.
+GPU_PREFERENCE_CHAIN = ("RTXPro6000", "H200", "H100", "L40S")
 
+
+def _gpu_type_matches(gpu_type: str, want: str) -> bool:
+    """Match Shadeform gpu_type against a preference token.
+
+    Exact case-insensitive match for most tokens. RTXPro6000 also accepts
+    common aliases (RTX PRO 6000, RTX6000Pro, …) but never bare B200.
+    """
+    gt = gpu_type.strip().upper().replace(" ", "").replace("_", "").replace("-", "")
+    w = want.strip().upper().replace(" ", "").replace("_", "").replace("-", "")
+    if gt in BANNED_GPU or "B200" in gt:
+        return False
+    if w == "RTXPRO6000":
+        # Prefer Blackwell Server Edition naming; accept Shadeform's RTXPro6000.
+        if gt == "RTXPRO6000":
+            return True
+        if "RTX" in gt and "6000" in gt and "PRO" in gt and "ADA" not in gt:
+            return True
+        return False
+    return gt == w
+
+
+def pick_instance_type(types: list[dict[str, Any]], prefer: str) -> dict[str, Any]:
+    """Pick cheapest available 1-GPU Ubuntu CUDA instance along the preference chain.
+
+    Tries `prefer` first, then the remainder of GPU_PREFERENCE_CHAIN.
     Shadeform `/instances/types` returns `availability` as a list of
     `{region, available, ...}` and `configuration.os_options` for images.
     `hourly_price` is in US cents.
     """
 
-    def candidates(gpu: str) -> list[dict[str, Any]]:
+    def candidates(want: str) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for t in types:
             gpu_type = str(t.get("gpu_type") or "")
-            if gpu_type.upper() != gpu.upper():
-                continue
-            if "B200" in gpu_type.upper() or gpu_type.upper() in BANNED_GPU:
+            if not _gpu_type_matches(gpu_type, want):
                 continue
             num = t.get("num_gpus")
             if num is None:
@@ -214,13 +238,17 @@ def pick_instance_type(types: list[dict[str, Any]], prefer: str) -> dict[str, An
         )
         return out
 
-    for gpu in (prefer, "H200"):
+    chain: list[str] = []
+    for g in (prefer, *GPU_PREFERENCE_CHAIN):
+        if g not in chain:
+            chain.append(g)
+    for gpu in chain:
         found = candidates(gpu)
         if found:
             return found[0]
     sys.exit(
-        f"no available 1-GPU H100/H200 Ubuntu CUDA instance types "
-        f"(prefer={prefer}); refusing B200"
+        f"no available 1-GPU Ubuntu CUDA instance types along "
+        f"{chain} (prefer={prefer}); refusing B200"
     )
 
 
@@ -398,8 +426,15 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    c = sub.add_parser("create", help="create one H100 (fallback H200)")
-    c.add_argument("--gpu", default="H100", help="preferred gpu_type (default H100)")
+    c = sub.add_parser(
+        "create",
+        help="create one GPU (RTXPro6000 → H200 → H100 → L40S)",
+    )
+    c.add_argument(
+        "--gpu",
+        default="RTXPro6000",
+        help="preferred gpu_type (default RTXPro6000; then H200/H100/L40S)",
+    )
     c.add_argument(
         "--timeout",
         type=int,

@@ -391,11 +391,7 @@ fn check_dcgm_library(_ctx: &CheckCtx) -> CheckResult {
             .into_iter()
             .flatten()
             .flatten()
-            .any(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .starts_with("libdcgm.so")
-            });
+            .any(|e| e.file_name().to_string_lossy().starts_with("libdcgm.so"));
 
     match (dcgmi, lib_present) {
         (Some(path), true) => CheckResult::Pass(format!("dcgmi at {path}; libdcgm present")),
@@ -429,7 +425,10 @@ fn check_dcgm_hostengine(_ctx: &CheckCtx) -> CheckResult {
     if which("dcgmi").is_none() {
         return CheckResult::Warn(
             "dcgmi not on PATH; cannot probe host engine".to_string(),
-            Some("install datacenter-gpu-manager; then systemctl enable --now nvidia-dcgm".to_string()),
+            Some(
+                "install datacenter-gpu-manager; then systemctl enable --now nvidia-dcgm"
+                    .to_string(),
+            ),
         );
     }
     match try_exec("dcgmi", &["discovery", "-l"], Duration::from_millis(5_000)) {
@@ -491,8 +490,7 @@ fn check_dcgm_prof_module(_ctx: &CheckCtx) -> CheckResult {
                 out.stderr.trim()
             ),
             Some(
-                "ensure nvidia-dcgm is running and the GPU supports DCGM PROF_* fields"
-                    .to_string(),
+                "ensure nvidia-dcgm is running and the GPU supports DCGM PROF_* fields".to_string(),
             ),
         ),
         None => CheckResult::Warn(

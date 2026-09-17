@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::HashMap;
 use crate::device::GpuReader;
 use crate::device::common::{execute_command_default, parse_csv_line};
 use crate::device::process_list::{get_all_processes, merge_gpu_processes};
@@ -20,6 +19,7 @@ use crate::device::readers::common_cache::{DetailBuilder, DeviceStaticInfo};
 use crate::device::types::{GpuInfo, ProcessInfo};
 use crate::utils::{get_hostname, hz_to_mhz, millicelsius_to_celsius, with_global_system};
 use chrono::Local;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
 use std::sync::OnceLock;
@@ -263,9 +263,9 @@ fn get_gpu_processes() -> (Vec<ProcessInfo>, HashSet<u32>) {
                     priority: 0,          // Will be filled by sysinfo
                     nice_value: 0,        // Will be filled by sysinfo
                     gpu_utilization: 0.0, // nvidia-smi on Jetson doesn't provide per-process GPU utilization
-                gpu_mem_util: None,
-                enc_util: None,
-                dec_util: None,
+                    gpu_mem_util: None,
+                    enc_util: None,
+                    dec_util: None,
                 });
             }
         }
@@ -313,9 +313,9 @@ fn get_gpu_processes() -> (Vec<ProcessInfo>, HashSet<u32>) {
                             priority: 0,          // Will be filled by sysinfo
                             nice_value: 0,        // Will be filled by sysinfo
                             gpu_utilization: 0.0, // Can't determine per-process GPU utilization
-                        gpu_mem_util: None,
-                        enc_util: None,
-                        dec_util: None,
+                            gpu_mem_util: None,
+                            enc_util: None,
+                            dec_util: None,
                         });
                         break;
                     }

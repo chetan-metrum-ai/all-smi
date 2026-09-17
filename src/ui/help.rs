@@ -185,7 +185,11 @@ fn render_shortcuts_section(
             "Recall a previous filter query (while editing)",
             "shortcut",
         ),
-        ("  A", "Toggle alert history panel (temp/hollow/xid/throttle/...)", "shortcut"),
+        (
+            "  A",
+            "Toggle alert history panel (temp/hollow/xid/throttle/...)",
+            "shortcut",
+        ),
         (
             "  R",
             "Reset energy session counter (keeps Prometheus total)",

@@ -7,9 +7,12 @@
 
 #![cfg(feature = "cli")]
 
-use all_smi::api::metrics::hardware::HardwareMetricExporter;
 use all_smi::api::metrics::MetricExporter;
-use all_smi::device::types::{GpmMetrics, GpuInfo, NvLinkErrorCount, RemappedRowsInfo, TelemetrySource, ThrottleReasons, UtilizationSample};
+use all_smi::api::metrics::hardware::HardwareMetricExporter;
+use all_smi::device::types::{
+    GpmMetrics, GpuInfo, NvLinkErrorCount, RemappedRowsInfo, TelemetrySource, ThrottleReasons,
+    UtilizationSample,
+};
 use all_smi::network::metrics_parser::MetricsParser;
 use regex::Regex;
 use std::collections::HashMap;
@@ -90,9 +93,18 @@ fn populated_gpu() -> GpuInfo {
             count: 3,
         }],
         utilization_samples: Some(vec![
-            UtilizationSample { timestamp_us: 1, value: 10.0 },
-            UtilizationSample { timestamp_us: 2, value: 20.0 },
-            UtilizationSample { timestamp_us: 3, value: 40.0 },
+            UtilizationSample {
+                timestamp_us: 1,
+                value: 10.0,
+            },
+            UtilizationSample {
+                timestamp_us: 2,
+                value: 20.0,
+            },
+            UtilizationSample {
+                timestamp_us: 3,
+                value: 40.0,
+            },
         ]),
         xid_event_counts: {
             let mut m = HashMap::new();
@@ -219,7 +231,10 @@ fn gpm_prometheus_parser_round_trip() {
     let parsed = parser.parse_metrics(&exposition, "node-p1:9090", &metric_re());
     assert_eq!(parsed.gpu_info.len(), 1);
     let round_gpu = &parsed.gpu_info[0];
-    let round = round_gpu.gpm_metrics.as_ref().expect("gpm present after parse");
+    let round = round_gpu
+        .gpm_metrics
+        .as_ref()
+        .expect("gpm present after parse");
     assert_gpm_close(gpu.gpm_metrics.as_ref().unwrap(), round);
     let hollow = all_smi::metrics::gpu_readings::hollow_utilization(&gpu).expect("hollow");
     assert!((hollow - 0.79).abs() < 1e-4, "hollow={hollow}");

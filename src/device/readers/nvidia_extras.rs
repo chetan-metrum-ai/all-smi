@@ -7,13 +7,13 @@ use crate::device::types::{
     GpmMetrics, NvLinkErrorCount, RemappedRowsInfo, TelemetrySource, ThrottleReasons,
     UtilizationSample,
 };
+use nvml_wrapper::Device;
 use nvml_wrapper::bitmasks::device::ThrottleReasons as NvmlThrottleReasons;
 use nvml_wrapper::enum_wrappers::device::{PcieUtilCounter, Sampling};
 use nvml_wrapper::enum_wrappers::nv_link::ErrorCounter;
 use nvml_wrapper::enums::device::SampleValue;
 use nvml_wrapper::structs::device::FieldId;
 use nvml_wrapper::sys_exports::field_id;
-use nvml_wrapper::Device;
 use std::collections::HashMap;
 
 const MAX_UTIL_SAMPLES: usize = 64;

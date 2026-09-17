@@ -1795,7 +1795,7 @@ mod tests {
             gpu_memory_bytes: 1000,
             cpu_pct_tenths: 0,
             start_time_seconds: 10,
-                    sm_util_pct: None,
+            sm_util_pct: None,
         }];
         // Simulate a collector push so the aggregation cache picks up
         // the new process data; UI-only `mark_data_changed` would leave
@@ -1884,7 +1884,7 @@ mod tests {
                 gpu_memory_bytes: vram,
                 cpu_pct_tenths: 0,
                 start_time_seconds: 60,
-            sm_util_pct: None,
+                sm_util_pct: None,
             });
         }
         state.mark_collector_data_changed();
@@ -1977,8 +1977,8 @@ mod tests {
                 gpu_memory_bytes: 1024,
                 cpu_pct_tenths: 0,
                 start_time_seconds: 10,
-                        sm_util_pct: None,
-        });
+                sm_util_pct: None,
+            });
         }
         state.mark_collector_data_changed();
         // Warm the cache.
@@ -2080,7 +2080,7 @@ mod tests {
                 gpu_memory_bytes: 1_000_000_000,
                 cpu_pct_tenths: 0,
                 start_time_seconds: 10,
-            sm_util_pct: None,
+                sm_util_pct: None,
             });
         }
         state.mark_collector_data_changed();
@@ -2117,8 +2117,8 @@ mod tests {
                     gpu_memory_bytes: 1000,
                     cpu_pct_tenths: 0,
                     start_time_seconds: 10,
-                            sm_util_pct: None,
-        });
+                    sm_util_pct: None,
+                });
         }
         // Simulate a collector push so the aggregation cache picks up
         // the new process data.

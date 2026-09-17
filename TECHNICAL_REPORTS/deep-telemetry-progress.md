@@ -183,3 +183,10 @@ Artifacts: `TECHNICAL_REPORTS/runs/metrum.2-nucbox-smoke/`
 ### Shadeform teardown
 
 Instance `fea307ef-c176-4343-8965-493f0db1a17a` deleted via `scripts/dev/shadeform.py delete --yes-i-am-sure`; local `.shadeform-state.json` cleared.
+
+## CI fix + new Shadeform (RTXPro6000)
+
+- Root cause: P4 added no-op cargo feature `dcgm` but `enabled_features()` in `src/doctor/bundle.rs` had no arm → `bundle_covers_every_declared_feature` failed on GHA.
+- Fix: record `dcgm` in `enabled_features()` + build-config test; `cargo fmt` for `fmt --check`.
+- `scripts/dev/shadeform.py` preference chain: RTXPro6000 → H200 → H100 → L40S (still refuse bare B200).
+- New instance: RTX PRO 6000 Blackwell (`RTXPro6000`, massedcompute), left running until explicit delete.
