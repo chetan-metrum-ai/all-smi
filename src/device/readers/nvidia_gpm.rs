@@ -5,9 +5,10 @@
 //! GPM metrics require two time-separated samples passed to
 //! [`nvml_wrapper::gpm::gpm_metrics_get`]. This module caches the previous
 //! raw sample handle per GPU UUID across polls (via `into_handle` /
-//! `from_handle`) so the reader stays compatible with all-smi's single-poll
-//! contract. The first poll stores a sample and returns `None`; subsequent
-//! polls yield a populated [`GpmMetrics`].
+//! `from_handle`) so subsequent polls stay cheap. On the *first* poll for a
+//! UUID the collector self-primes with a short second sample so one-shot
+//! tools (`all-smi snapshot`) populate activity fields instead of returning
+//! an empty metrics shell filled only by the NVML PCIe fallback.
 //!
 //! Set `ALL_SMI_NVIDIA_DISABLE_GPM=1` to force the GPM path off (used by P4
 //! to exercise the DCGM fallback).
@@ -21,6 +22,7 @@ use nvml_wrapper::struct_wrappers::gpm::GpmMetricResult;
 use nvml_wrapper::{Device, Nvml};
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::Duration;
 
 /// Env var that disables the NVML GPM collector entirely when set to a
 /// non-empty value other than `0` / `false` / `no`.
@@ -92,7 +94,14 @@ impl GpmState {
     }
 
     /// Take a GPM sample and, when a previous sample exists for `uuid`,
-    /// compute metrics. First poll returns `None` after caching the sample.
+    /// compute metrics.
+    ///
+    /// On the first poll for a UUID there is no prior sample. Rather than
+    /// returning `None` (which made one-shot tools like
+    /// `all-smi snapshot --samples 1` look as if GPM were unavailable —
+    /// issue #5), we immediately take a second sample after a short gap and
+    /// return the computed metrics. Subsequent polls reuse the cached
+    /// handle with no extra sleep.
     pub fn collect(&self, nvml: &Nvml, device: &Device<'_>) -> Option<GpmMetrics> {
         if Self::is_disabled() {
             return None;
@@ -106,8 +115,29 @@ impl GpmState {
 
         let mut map = self.prev.lock().unwrap_or_else(|e| e.into_inner());
         let Some(prev_bits) = map.remove(&uuid) else {
-            map.insert(uuid, sample_to_bits(cur));
-            return None;
+            // First poll: prime with a second sample so one-shot collectors
+            // get activity metrics instead of an empty `source=nvml` shell.
+            const PRIME_GAP: Duration = Duration::from_millis(200);
+            std::thread::sleep(PRIME_GAP);
+            let second = match device.gpm_sample() {
+                Ok(s) => s,
+                Err(_) => {
+                    map.insert(uuid, sample_to_bits(cur));
+                    return None;
+                }
+            };
+            let results = match gpm_metrics_get(nvml, &cur, &second, IDS) {
+                Ok(r) => r,
+                Err(_) => {
+                    let _ = cur.free();
+                    map.insert(uuid, sample_to_bits(second));
+                    return None;
+                }
+            };
+            let metrics = metrics_from_results(&results);
+            let _ = cur.free();
+            map.insert(uuid, sample_to_bits(second));
+            return Some(metrics);
         };
 
         let prev = unsafe { sample_from_bits(nvml, prev_bits) };
@@ -150,6 +180,67 @@ impl Default for GpmState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Take two GPM samples separated by `gap` and return the computed metrics.
+///
+/// Used by `doctor` so support is validated by real sampling rather than
+/// NVML's `gpm_support()` flag alone (which can be true on SM120 RTX parts
+/// that never populate activity fields). Temporary sample handles are freed
+/// before returning. Returns `None` when GPM is disabled, unsupported, or
+/// either sample / `gpm_metrics_get` fails.
+pub fn probe_two_sample(nvml: &Nvml, device: &Device<'_>, gap: Duration) -> Option<GpmMetrics> {
+    if GpmState::is_disabled() {
+        return None;
+    }
+    if !gpm_is_supported(device) {
+        return None;
+    }
+    let first = device.gpm_sample().ok()?;
+    std::thread::sleep(gap);
+    let second = match device.gpm_sample() {
+        Ok(s) => s,
+        Err(_) => {
+            let _ = first.free();
+            return None;
+        }
+    };
+    let results = match gpm_metrics_get(nvml, &first, &second, IDS) {
+        Ok(r) => r,
+        Err(_) => {
+            let _ = first.free();
+            let _ = second.free();
+            return None;
+        }
+    };
+    let metrics = metrics_from_results(&results);
+    let _ = first.free();
+    let _ = second.free();
+    Some(metrics)
+}
+
+/// `true` when at least one genuine GPM **activity** field is present.
+///
+/// PCIe / NVLink byte-rate counters are excluded: the collector can fill
+/// those via the non-GPM NVML `pcie_throughput` fallback (`source=nvml`),
+/// which must not count as proof that GPM works (issue #5 / RTX PRO 6000).
+/// A present ratio of `0.0` is valid — absence is `None`, not zero.
+pub fn has_activity_metrics(m: &GpmMetrics) -> bool {
+    m.graphics_active.is_some()
+        || m.sm_active.is_some()
+        || m.sm_occupancy.is_some()
+        || m.tensor_active.is_some()
+        || m.tensor_hmma_active.is_some()
+        || m.tensor_imma_active.is_some()
+        || m.tensor_dfma_active.is_some()
+        || m.fp64_active.is_some()
+        || m.fp32_active.is_some()
+        || m.fp16_active.is_some()
+        || m.integer_active.is_some()
+        || m.memory_bandwidth_utilization.is_some()
+        || m.nvdec_active.is_some()
+        || m.nvjpg_active.is_some()
+        || m.nvofa_active.is_some()
 }
 
 fn sample_to_bits(sample: GpmSample<'_>) -> usize {
@@ -302,5 +393,34 @@ mod tests {
             };
             assert_eq!(disabled, expect, "v={v}");
         }
+    }
+
+    #[test]
+    fn has_activity_ignores_pcie_only() {
+        let mut empty = GpmMetrics::default();
+        assert!(!has_activity_metrics(&empty));
+
+        empty.pcie_rx_bytes_per_sec = Some(1.0);
+        empty.pcie_tx_bytes_per_sec = Some(2.0);
+        empty.source = Some(TelemetrySource::Nvml);
+        assert!(
+            !has_activity_metrics(&empty),
+            "PCIe NVML fallback must not count as GPM activity"
+        );
+
+        empty.sm_active = Some(0.0);
+        assert!(
+            has_activity_metrics(&empty),
+            "zero sm_active is a valid present reading"
+        );
+
+        let mut nonzero = GpmMetrics {
+            graphics_active: Some(0.5),
+            ..GpmMetrics::default()
+        };
+        assert!(has_activity_metrics(&nonzero));
+        nonzero.graphics_active = None;
+        nonzero.memory_bandwidth_utilization = Some(0.1);
+        assert!(has_activity_metrics(&nonzero));
     }
 }

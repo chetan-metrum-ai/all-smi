@@ -1,0 +1,12 @@
+all-smi doctor — 0.26.3
+Running 1 checks…
+
+PASS nvidia.gpm.supported             GPM activity metrics sampled on 1 of 1 device(s) that claim support (NVIDIA RTX PRO 6000 Blackwell Server Edition (GPU-8ae8c5e7-e368-551d-d869-f6b7067f0f59))
+
+Summary: 1 pass, 0 warn, 0 fail, 0 skipped
+Exit code: 0
+---
+samples1 source gpm sm 0.0 graphics 0.0 pcie 601636.4351264769
+---
+name, driver_version
+NVIDIA RTX PRO 6000 Blackwell Server Edition, 580.126.09

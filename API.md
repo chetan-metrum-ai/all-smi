@@ -343,7 +343,8 @@ Extended NVIDIA hardware detail metrics (NUMA topology, GSP firmware, NvLink top
 - `all_smi_gpu_numa_node_id`: NVML reports `-1` for GPUs without a NUMA attachment; this value is canonicalised to `None` and the metric is omitted rather than emitting a negative number.
 - `all_smi_gpu_gsp_firmware_version_info`: the `version` label carries a string such as `"550.54.15"`. Because the version is static for the lifetime of the driver, it is cached after the first successful NVML call.
 - `all_smi_nvlink_remote_device_type`: one metric row is emitted per active NvLink. A GPU with no active links produces no rows for this metric family.
-- GPM ratios require a two-sample handshake. The first poll stores a sample and emits nothing; subsequent polls publish ratios/rates. Unknown fields stay absent (never `0`). Disable the NVML GPM path with `ALL_SMI_NVIDIA_DISABLE_GPM=1` (used to exercise DCGM fallbacks).
+- GPM ratios require a two-sample handshake. The first poll for a GPU UUID self-primes with a short second sample so one-shot tools (`all-smi snapshot`) populate activity fields; subsequent polls reuse the cached handle. Unknown fields stay absent (never invented as `0` when the metric truly failed). Disable the NVML GPM path with `ALL_SMI_NVIDIA_DISABLE_GPM=1` (used to exercise DCGM fallbacks).
+- `all-smi doctor`'s `nvidia.gpm.supported` check takes a real two-sample probe and only **pass**es when at least one GPM activity field is present (a reading of `0.0` counts; PCIe/NVLink NVML fallback alone does not). When NVML claims support but sampling yields no activity metrics, the check **warn**s with the device name.
 
 ### NVIDIA NVML Extras (P2)
 
