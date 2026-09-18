@@ -317,9 +317,10 @@ impl NvidiaGpuReader {
                     // Active NvLinks are queried every poll — link state
                     // can change at runtime if a cable is disconnected.
                     let nvlink_remote_devices = collect_nvlink_remote_devices(nvml, &device);
-                    // GPM two-sample path (Hopper+). First poll returns
-                    // `None`; later polls fill ratios/rates. Disabled via
-                    // ALL_SMI_NVIDIA_DISABLE_GPM=1.
+                    // GPM two-sample path (Hopper+). First poll self-primes
+                    // with a short second sample so one-shot collectors get
+                    // activity metrics; later polls reuse the cached handle.
+                    // Disabled via ALL_SMI_NVIDIA_DISABLE_GPM=1.
                     let mut gpm_metrics = self.gpm_state.collect(nvml, &device);
                     apply_pcie_throughput_fallback(&device, &mut gpm_metrics);
                     let throttle_reasons = collect_throttle_reasons(&device);

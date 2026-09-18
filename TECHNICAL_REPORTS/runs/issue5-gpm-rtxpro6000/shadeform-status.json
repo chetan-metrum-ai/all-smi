@@ -1,0 +1,15 @@
+{
+  "id": "73f90199-ca15-4c91-bf14-8337318eac40",
+  "ip": "216.243.220.75",
+  "ssh_user": "shadeform",
+  "ssh_port": 22,
+  "shade_instance_type": "RTXPro6000",
+  "gpu_type": "RTXPro6000",
+  "cloud": "massedcompute",
+  "region": "kansascity-usa-6",
+  "os": "ubuntu22.04_cuda13.0_shade_os",
+  "hourly_price": 219,
+  "hourly_price_usd": 2.19,
+  "created_at": "2026-09-18T01:20:36.330032+00:00",
+  "status": "active"
+}
