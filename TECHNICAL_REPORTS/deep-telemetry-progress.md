@@ -189,7 +189,7 @@ Instance `fea307ef-c176-4343-8965-493f0db1a17a` deleted via `scripts/dev/shadefo
 - Root cause: P4 added no-op cargo feature `dcgm` but `enabled_features()` in `src/doctor/bundle.rs` had no arm → `bundle_covers_every_declared_feature` failed on GHA.
 - Fix: record `dcgm` in `enabled_features()` + build-config test; `cargo fmt` for `fmt --check`.
 - `scripts/dev/shadeform.py` preference chain: RTXPro6000 → H200 → H100 → L40S (still refuse bare B200).
-- New instance: RTX PRO 6000 Blackwell (`RTXPro6000`, massedcompute), left running until explicit delete.
+- New instance: RTX PRO 6000 Blackwell (`RTXPro6000`, massedcompute).
 
 ### Blackwell release smoke (RTXPro6000)
 
@@ -206,4 +206,20 @@ Artifacts: `TECHNICAL_REPORTS/runs/metrum.2-blackwell-smoke/`
 - Wrapper at `~/.local/bin/all-smi` → `~/all-smi-release-metrum.2/` (sets `LD_LIBRARY_PATH` + default `ALL_SMI_DCGM_PLUGIN`); not installed to `/usr/bin`
 - `all-smi --version` → `0.26.3`; doctor nvidia.* → 4 SKIP on no-GPU
 
+### Shadeform teardown (RTXPro6000)
+
+Instance `49b9fabb-50d1-48dd-ae6e-a25cb017e2da` deleted via `scripts/dev/shadeform.py delete --yes-i-am-sure`; local `.shadeform-state.json` cleared.
+
 Upstream lablup PR deferred until further testing.
+
+## Release v0.26.3-metrum.3
+
+Tagged on fork `main` after PR #6 (issue #5).
+
+### Changes since metrum.2
+
+- GPM doctor two-sample probe: no longer trusts NVML `gpm_support()` alone; WARN when the flag is a false positive
+- First GPM collector poll self-primes so `snapshot --samples 1` can populate `source=gpm`
+- `enabled_features()` records the no-op `dcgm` cargo feature (support-bundle / CI coverage)
+
+Crate version remains `0.26.3`; tag is `v0.26.3-metrum.3`.
