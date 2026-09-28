@@ -223,3 +223,16 @@ Tagged on fork `main` after PR #6 (issue #5).
 - `enabled_features()` records the no-op `dcgm` cargo feature (support-bundle / CI coverage)
 
 Crate version remains `0.26.3`; tag is `v0.26.3-metrum.3`.
+
+## Release v0.26.3-metrum.4
+
+Tagged on fork `main` after merging `lablup/main` through `57091b7` (PR #445 closed; sync was fork-only).
+
+### Changes since metrum.3
+
+- Sync upstream: AWS Neuron device support (#417), Rebellions load/power fixes (#416, #423), Tenstorrent vendor metrics re-key (#439)
+- Sync upstream: volatile detail keys / dedicated gauges (#435, #441, #442), Linux process CPU sampler (#443), macOS `proc_pidinfo` sampling and collection-cost work (#426, #432)
+- Sync upstream: drop dead generic `all_smi_npu_*` metrics (#440), Prometheus parse hardening (#438), macOS CI clippy gate (#444)
+- Merge fix: initialize fork deep-telemetry `GpuInfo` fields on new upstream Neuron/NPU/test constructors
+
+Crate version remains `0.26.3`; tag is `v0.26.3-metrum.4`.
