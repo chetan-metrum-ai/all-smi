@@ -225,9 +225,64 @@ live in argv.
 | `all_smi_gpu_power_consumption_watts` | GPU power consumption      | watts   | `gpu_index`, `gpu_name`                   |
 | `all_smi_gpu_frequency_mhz`           | GPU frequency              | MHz     | `gpu_index`, `gpu_name`                   |
 | `all_smi_gpu_fan_speed_rpm`           | GPU fan speed              | RPM     | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_fan_duty_cycle`          | GPU fan duty cycle         | percent | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_pcie_gen_current`        | Current PCIe generation    | -       | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_pcie_width_current`      | Current PCIe link width    | -       | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_memory_free_bytes`       | GPU memory free            | bytes   | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_hotspot_temperature_celsius` | GPU hotspot temperature | celsius | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_memory_temperature_celsius` | GPU memory die temperature | celsius | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_memory_controller_activity` | GPU memory controller activity | percent | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_process_vram_used_bytes` | VRAM used by the all-smi process | bytes | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_process_vram_budget_bytes` | VRAM budget of the all-smi process | bytes | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
+| `all_smi_gpu_engine_utilization`      | GPU engine utilization, one row per engine class | percent | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `engine` |
+| `all_smi_gpu_clock_domain_current_mhz` | GPU clock domain frequency, one row per clock domain | MHz | `gpu`, `instance`, `gpu_uuid`, `gpu_index`, `domain` |
 | `all_smi_gpu_info`                    | GPU device information     | info    | `gpu_index`, `gpu_name`, `driver_version` |
 
-`all_smi_gpu_fan_speed_rpm` is emitted only by devices that expose a fan tachometer: AMD via amdgpu on Linux and ADL on Windows, and Intel via hwmon `fan1_input` or Level Zero Sysman. Passively cooled datacenter cards and drivers that report only a duty-cycle percentage omit the series entirely, so absence means "no tachometer" rather than "fan stopped".
+`all_smi_gpu_fan_speed_rpm` is emitted only by devices that expose a fan tachometer: AMD via amdgpu on Linux and ADL on Windows, and Intel via hwmon `fan1_input` or Level Zero Sysman. Passively cooled datacenter cards omit the series entirely, so absence means "no tachometer" rather than "fan stopped". A Level Zero device whose driver exposes no tachometer reports its fan as a duty cycle instead, which ships as `all_smi_gpu_fan_duty_cycle`; the two families never appear together on one device. The legacy `fan_speed` label on `all_smi_gpu_info` is gone: the reading ships only as the gauges.
+
+The two PCIe current gauges ship on NVIDIA NVML hosts and on Linux AMD hosts, but the two vendors report different freshness. On NVIDIA the reading is the link state seen when the reader initialised (it lives in the startup-cached static detail map, the same contract as `all_smi_gpu_clock_memory_max_mhz` and `power_limit_current`); on Linux AMD it is live and re-read on every poll, because AMD GPUs retrain the link with the power state. Both widths are bare lane counts (`16`), not `x16`.
+
+The AMD ADL sensor gauges (`all_smi_gpu_hotspot_temperature_celsius`, `all_smi_gpu_memory_temperature_celsius`, `all_smi_gpu_memory_controller_activity`) ship on Windows hosts with the AMD driver, live and re-read on every poll; they are absent when a sensor does not answer, and a card without the AMD ADL library publishes none of them. `all_smi_gpu_memory_free_bytes` ships on Intel Gaudi hosts, taken from hl-smi's own CSV column rather than derived as total minus used. `all_smi_gpu_process_vram_used_bytes` and `all_smi_gpu_process_vram_budget_bytes` ship on Windows hosts: both are scoped to the process running all-smi, which is always the exporter itself, so the dimension collapses onto the device row and neither is mixed into the system-wide `all_smi_gpu_memory_used_bytes`.
+
+`all_smi_gpu_engine_utilization` and `all_smi_gpu_clock_domain_current_mhz` ship on Intel hosts, one row per discovered engine class and clock domain. The `engine` label carries the class name, and the `domain` label the clock domain; a Level Zero-sourced row keeps the driver's `(L0)` qualifier in its label value, so the two provenances stay distinct series rather than flipping one series between samples.
+
+### `all_smi_gpu_info` carries device identity only
+
+The label set of `all_smi_gpu_info` describes what a device *is*: name, instance, UUID, index, type, and the reader's static details (serial, firmware, driver and library versions, PCI address, and so on). A changing reading does not belong on it. Prometheus identifies a series by its full label set, so a label whose value moves between scrapes starts a new series on each scrape and leaves the previous one stale, making series and index cardinality grow with the number of scrapes instead of the number of devices. Readings have a dedicated series instead, which is also what makes `group_left` joins against `all_smi_gpu_info` stable over a range.
+
+The sweep is complete: every `detail` key whose value is a continuously varying measurement is registered in `detail_keys::VOLATILE_DETAIL_KEYS`, and each one's reading ships as a dedicated series. A registry entry matches by exact key, by the sanitized label name it would have produced, or, for the Intel engine and clock families a reader builds at runtime, by a reserved key prefix. Keys that hold a discrete state (`Status`, `Performance State`), a settable limit or mode, or a provenance string are identity and stay labels.
+
+Readings that used to ride on this label set, and the series that carries each of them now:
+
+| Former label                                     | Devices             | Read it from                                           |
+|--------------------------------------------------|---------------------|---------------------------------------------------------|
+| `card_power_watts`                               | Rebellions ATOM Max | `all_smi_gpu_card_power_watts` (new; see the Rebellions section, and do not sum it) |
+| `vdd_voltage`, `current`                         | Tenstorrent         | `all_smi_tenstorrent_voltage_volts`, `all_smi_tenstorrent_current_amperes` |
+| `asic_temperature`, `vr_temperature`, `inlet_temperature` | Tenstorrent | `all_smi_tenstorrent_asic_temperature_celsius`, `all_smi_tenstorrent_vreg_temperature_celsius`, `all_smi_tenstorrent_inlet_temperature_celsius` |
+| `ai_clock`, `arc_clock`, `axi_clock`             | Tenstorrent         | `all_smi_tenstorrent_aiclk_mhz`, `all_smi_tenstorrent_arcclk_mhz`, `all_smi_tenstorrent_axiclk_mhz` |
+| `combined_power_mw`                              | Apple Silicon       | `all_smi_combined_power_watts` (the same reading, in watts) |
+| `cpu_temperature`                                | Apple Silicon       | `all_smi_cpu_temperature_celsius`                       |
+| `gpu_temperature`                                | Apple Silicon       | `all_smi_gpu_temperature_celsius`                       |
+| `frequency`                                      | Furiosa             | `all_smi_gpu_frequency_mhz`                             |
+| `current_power`                                  | Intel Gaudi, Google TPU | `all_smi_gpu_power_consumption_watts`                |
+| `used_memory`                                    | Intel Gaudi, Google TPU | `all_smi_gpu_memory_used_bytes`                      |
+| `hlo_queue_size`, `hlo_exec_mean`, `hlo_exec_p50`, `hlo_exec_p90`, `hlo_exec_p95`, `hlo_exec_p99_9` | Google TPU | `all_smi_tpu_hlo_queue_size`, `all_smi_tpu_hlo_exec_mean_microseconds`, and the `p50`, `p90`, `p95` and `p999` variants |
+| `pcie_generation`, `pcie_width`                  | NVIDIA             | `all_smi_gpu_pcie_gen_current`, `all_smi_gpu_pcie_width_current` (new; the width is a bare lane count rather than `x16`, and the reading is the link state at reader initialisation) |
+| `current_link`                                   | AMD (Linux)        | `all_smi_gpu_pcie_gen_current`, `all_smi_gpu_pcie_width_current` (live) |
+| `memory_clock`                                   | AMD (Linux, Windows ADL) | `all_smi_gpu_clock_memory_current_mhz` (live; both vendors write the same bare-`MHz` key) |
+| `fan_speed`                                      | AMD, Intel         | `all_smi_gpu_fan_speed_rpm`, or `all_smi_gpu_fan_duty_cycle` for a Level Zero device whose driver exposes no tachometer |
+| `free_memory`                                    | Intel Gaudi        | `all_smi_gpu_memory_free_bytes` (the same reading, in bytes, taken from hl-smi's CSV column) |
+| `hotspot_temperature`                            | AMD (Windows ADL)  | `all_smi_gpu_hotspot_temperature_celsius`               |
+| `memory_temperature`                             | AMD (Windows ADL)  | `all_smi_gpu_memory_temperature_celsius`                |
+| `memory_controller_activity`                     | AMD (Windows ADL)  | `all_smi_gpu_memory_controller_activity`                |
+| `vram_usage__this_process_`, `vram_budget__this_process_` | Windows (DXGI) | `all_smi_gpu_process_vram_used_bytes`, `all_smi_gpu_process_vram_budget_bytes` |
+| `power__l0_`                                     | Intel (Level Zero) | `all_smi_gpu_power_consumption_watts` (the same reading, assigned to the typed power field) |
+| `engine__<class>`, `engine__<class>__l0_`        | Intel (sysfs, Level Zero) | `all_smi_gpu_engine_utilization`, one row per engine class keyed by the `engine` label |
+| `frequency__<domain>__l0_`                       | Intel (Level Zero) | `all_smi_gpu_clock_domain_current_mhz`, one row per clock domain keyed by the `domain` label |
+
+This is an intentional exposition change: a scraper or dashboard that read any of these off `all_smi_gpu_info` must move to the series named above. Three differences are worth knowing when migrating. `all_smi_cpu_temperature_celsius` and `all_smi_gpu_temperature_celsius` are whole degrees, while the old Apple Silicon labels carried one decimal, so a migrated panel loses that decimal. `all_smi_cpu_temperature_celsius` carries the CPU label set (`cpu_model`, `instance`, `hostname`, `index`), not the GPU one, so a panel that joined on `gpu_uuid` joins on `instance` instead. And the Intel engine rows gained an `engine` label carrying the class name, so a panel that read `Engine: <class>` off the identity series filters on `engine="<class>"` instead.
+
+The exposition also sorts these labels by name, so an unchanged device renders byte-identically from scrape to scrape and two scrapes can be compared with `diff`.
 
 ### Unified AI Acceleration Library Labels
 
@@ -275,8 +330,6 @@ count by (lib_name, lib_version) (all_smi_gpu_info) > 1
 
 | Metric                                                    | Description                                                        | Unit    | Labels                               |
 |-----------------------------------------------------------|--------------------------------------------------------------------|---------|--------------------------------------|
-| `all_smi_gpu_pcie_gen_current`                            | Current PCIe generation                                            | -       | `gpu`, `instance`, `gpu_uuid`, `gpu_index`   |
-| `all_smi_gpu_pcie_width_current`                          | Current PCIe link width                                            | -       | `gpu`, `instance`, `gpu_uuid`, `gpu_index`   |
 | `all_smi_gpu_performance_state`                           | GPU performance state (P0=0 … P15=15; omitted when not reported)  | -       | `gpu`, `instance`, `gpu_uuid`, `gpu_index`   |
 | `all_smi_gpu_temperature_threshold_slowdown_celsius`      | Slowdown temperature threshold                                     | celsius | `gpu`, `instance`, `gpu_uuid`, `gpu_index`   |
 | `all_smi_gpu_temperature_threshold_shutdown_celsius`      | Shutdown temperature threshold                                     | celsius | `gpu`, `instance`, `gpu_uuid`, `gpu_index`   |
@@ -291,6 +344,7 @@ count by (lib_name, lib_version) (all_smi_gpu_info) > 1
 - Threshold metrics (`temperature_threshold_*`) and `performance_state` are NVIDIA-only. Each metric is emitted only when the driver exposes the value; hosts where the driver does not report a given threshold simply omit that metric line.
 - `performance_state` maps NVML `PerformanceState` variants: P0 (maximum performance) = 0 through P15 = 15. The `Unknown` sentinel is suppressed (`None`) rather than emitted.
 - The acoustic threshold is available on newer drivers and some GPU SKUs; older drivers leave it absent.
+- The two PCIe current gauges have moved to the all-platform GPU table, where they also cover Linux AMD hosts (see above for the freshness difference). The NVIDIA `all_smi_gpu_info` labels `pcie_generation` and `pcie_width` (the latter `"x16"`) are removed, not renamed; their readings travel as the two gauges instead, written from the same NVML reads under `detail.pcie_gen_current` and `detail.pcie_width_current`. NVIDIA's static `pcie_gen_max` and `pcie_width_max` remain `all_smi_gpu_info` labels, unchanged.
 
 ### NVIDIA Hardware Details Metrics
 
@@ -454,15 +508,18 @@ AMD GPUs (Radeon and Instinct series) provide comprehensive monitoring through R
 | `all_smi_amd_rocm_version`    | AMD ROCm version installed               | info    | `instance`, `version`                       |
 | `all_smi_gpu_memory_gtt_bytes`| GTT (GPU Translation Table) memory usage | bytes   | `gpu_index`, `gpu_name`                     |
 | `all_smi_gpu_memory_vram_bytes`| VRAM (Video RAM) usage                  | bytes   | `gpu_index`, `gpu_name`                     |
+| `all_smi_gpu_clock_memory_current_mhz` | Current memory clock            | MHz     | `gpu`, `instance`, `gpu_uuid`, `gpu_index`  |
 
 **Additional Details Available** (in `all_smi_gpu_info` labels):
 - **Driver Version**: AMDGPU kernel driver version (e.g., "30.10.1")
 - **ROCm Version**: ROCm software stack version (e.g., "7.0.2")
-- **PCIe Information**: Current link generation and width, max GPU/system link capabilities
+- **PCIe Information**: The negotiated link ships as the `all_smi_gpu_pcie_gen_current` and `all_smi_gpu_pcie_width_current` gauges, re-read live on every poll; the static max GPU/system link capabilities remain labels
 - **VBIOS**: Version and date information
 - **Power Management**: Current, minimum, and maximum power cap values
 - **ASIC Information**: Device ID, revision ID, ASIC name
-- **Memory Clock**: Current memory clock frequency
+- **Memory Clock**: Current memory clock frequency, shipped as the `all_smi_gpu_clock_memory_current_mhz` gauge
+
+The per-poll readings no longer ride on `all_smi_gpu_info` labels: `Current Link` (formatted `Gen<N> x<W>`) now ships as the two PCIe current gauges, `Memory Clock` as `all_smi_gpu_clock_memory_current_mhz`, and the tachometer reading only as `all_smi_gpu_fan_speed_rpm`. The same gauge covers Windows: the AMD ADL reader writes the same bare-`MHz` key from PMLog, so both vendors feed one memory-clock family, and the four ADL sensor readings on Windows (edge temperature floors at 0 in the typed field, so a sub-zero die on a cold-started machine keeps its true value only in the detail string) ship as the `all_smi_gpu_hotspot_temperature_celsius`, `all_smi_gpu_memory_temperature_celsius` and `all_smi_gpu_memory_controller_activity` gauges instead of labels. The rename is visible outside Prometheus too: snapshot JSON and CSV expose `detail` verbatim, so a query path such as `detail.Current Link` becomes `detail.pcie_gen_current` and `detail.pcie_width_current` (bare lane count), `detail.Memory Clock` becomes `detail.clock_memory_current` (bare MHz), and the values are numbers rather than unit-suffixed strings. The static `Max GPU Link`, `Max System Link`, `Min DPM Link` and `Max DPM Link` labels are unchanged.
 
 **Process Tracking**:
 - AMD GPU process detection uses `fdinfo` from `/proc/<pid>/fdinfo/` for accurate memory tracking
@@ -482,7 +539,7 @@ AMD GPUs (Radeon and Instinct series) provide comprehensive monitoring through R
 | `all_smi_ane_power_watts`       | ANE power consumption  | watts | `gpu_index`, `gpu_name`          |
 | `all_smi_thermal_pressure_info` | Thermal pressure level | info  | `gpu_index`, `gpu_name`, `level` |
 
-Note: For Apple Silicon (M1/M2/M3/M4), `gpu_temperature_celsius` is not available; thermal pressure level is provided instead.
+Note: on Apple Silicon (M1/M2/M3/M4) `all_smi_gpu_temperature_celsius` reports the SMC die reading, falling back to the CPU die when the GPU thermistor keys are not exposed, and is omitted entirely when neither sensor answers; `all_smi_thermal_pressure_info` reports the OS thermal pressure level alongside it. The CPU die reading is also published on its own as `all_smi_cpu_temperature_celsius`.
 
 ### Tenstorrent NPU Metrics
 
@@ -496,13 +553,11 @@ Note: For Apple Silicon (M1/M2/M3/M4), `gpu_temperature_celsius` is not availabl
 | `all_smi_gpu_power_consumption_watts` | NPU power consumption      | watts   | `gpu_index`, `gpu_name`                   |
 | `all_smi_gpu_frequency_mhz`           | NPU AI clock frequency     | MHz     | `gpu_index`, `gpu_name`                   |
 | `all_smi_gpu_info`                    | NPU device information     | info    | `gpu_index`, `gpu_name`, `driver_version` |
-| `all_smi_npu_firmware_info`           | NPU firmware version       | info    | `npu`, `instance`, `npu_uuid`, `npu_index`, `firmware` |
 
 #### Tenstorrent-Specific Metrics
 | Metric                                          | Description                        | Unit    | Labels                                                    |
 |-------------------------------------------------|------------------------------------|---------|-----------------------------------------------------------|
 | `all_smi_tenstorrent_board_info`                | Board and architecture information | info    | `npu`, `instance`, `npu_uuid`, `npu_index`, `board_type`, `board_id`, `architecture` |
-| `all_smi_tenstorrent_collection_method_info`    | Data collection method used        | info    | `npu`, `instance`, `npu_uuid`, `npu_index`, `method`             |
 | **Firmware Versions**                           |                                    |         |                                                           |
 | `all_smi_tenstorrent_arc_firmware_info`         | ARC firmware version               | info    | `npu`, `instance`, `npu_uuid`, `npu_index`, `version`            |
 | `all_smi_tenstorrent_eth_firmware_info`         | Ethernet firmware version          | info    | `npu`, `instance`, `npu_uuid`, `npu_index`, `version`            |
@@ -513,8 +568,6 @@ Note: For Apple Silicon (M1/M2/M3/M4), `gpu_temperature_celsius` is not availabl
 | `all_smi_tenstorrent_asic_temperature_celsius`  | ASIC temperature                   | celsius | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
 | `all_smi_tenstorrent_vreg_temperature_celsius`  | Voltage regulator temperature      | celsius | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
 | `all_smi_tenstorrent_inlet_temperature_celsius` | Inlet temperature                  | celsius | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
-| `all_smi_tenstorrent_outlet1_temperature_celsius`| Outlet 1 temperature              | celsius | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
-| `all_smi_tenstorrent_outlet2_temperature_celsius`| Outlet 2 temperature              | celsius | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
 | **Clock Frequencies**                           |                                    |         |                                                           |
 | `all_smi_tenstorrent_aiclk_mhz`                | AI clock frequency                 | MHz     | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
 | `all_smi_tenstorrent_axiclk_mhz`               | AXI clock frequency                | MHz     | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
@@ -522,9 +575,9 @@ Note: For Apple Silicon (M1/M2/M3/M4), `gpu_temperature_celsius` is not availabl
 | **Power and Electrical**                        |                                    |         |                                                           |
 | `all_smi_tenstorrent_voltage_volts`            | Core voltage                       | volts   | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
 | `all_smi_tenstorrent_current_amperes`          | Current draw                       | amperes | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
-| `all_smi_tenstorrent_power_raw_watts`          | Raw power consumption              | watts   | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
 | `all_smi_tenstorrent_tdp_limit_watts`          | TDP limit                          | watts   | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
 | `all_smi_tenstorrent_tdc_limit_amperes`        | TDC limit                          | amperes | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
+| `all_smi_tenstorrent_thermal_limit_celsius`    | Thermal limit                      | celsius | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
 | **Status and Health**                           |                                    |         |                                                           |
 | `all_smi_tenstorrent_heartbeat`                | Device heartbeat counter           | counter | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
 | `all_smi_tenstorrent_arc0_health`              | ARC0 health counter                | counter | `npu`, `instance`, `npu_uuid`, `npu_index`                       |
@@ -547,33 +600,54 @@ Note: For Apple Silicon (M1/M2/M3/M4), `gpu_temperature_celsius` is not availabl
 
 Note: Tenstorrent NPUs use the same basic metric names as GPUs for compatibility with existing monitoring infrastructure. Additional Tenstorrent-specific metrics provide detailed hardware monitoring capabilities.
 
+The telemetry gauges above (`all_smi_tenstorrent_voltage_volts`, `all_smi_tenstorrent_current_amperes`, the ASIC, voltage-regulator and inlet temperatures, and the AI, ARC and AXI clocks) now actually appear in the exposition. They had been documented and declared for some time without ever being emitted: the exporter looked up snake_case keys holding bare numbers while the reader wrote Title Case keys holding unit-suffixed strings such as `"800MHz"`, so every lookup missed and the readings reached Prometheus only as churning `all_smi_gpu_info` labels. The reader now writes the keys the exporter reads, at the same precision and without the unit suffix.
+
+The rename is visible outside Prometheus too. Snapshot JSON and CSV expose `detail` verbatim, so a query path such as `detail.AI Clock` becomes `detail.aiclk_mhz`, and the value is now `800` rather than `"800MHz"`. The full mapping is `VDD Voltage` to `voltage`, `Current` to `current`, `ASIC Temperature` to `asic_temperature`, `VR Temperature` to `vreg_temperature`, `Inlet Temperature` to `inlet_temperature`, `AI Clock` to `aiclk_mhz`, `ARC Clock` to `arcclk_mhz`, and `AXI Clock` to `axiclk_mhz`.
+
+The same convention now covers the static details and the health registers. The reader writes its board, firmware and PCIe information under the snake_case keys its exporter reads (`board_type`, `board_id`, `arc_fw_version`, `eth_fw_version`, `fw_date`, `ddr_fw_version`, `spibootrom_fw_version`, `pcie_address`, `pcie_vendor_id`, `pcie_device_id`, `pcie_link_gen`, `pcie_link_width`), which renames the corresponding snapshot JSON and CSV fields the same way; in the `all_smi_gpu_info` label set the names are unchanged except `pcie_generation`, which becomes `pcie_link_gen`, and the `pcie_link_width` value is now a bare lane count (`16`) rather than `x16`. The reader also populates the health and status values luwen already reported (`faults`, `throttler`, `arc0_health`, `arc3_health`, `pcie_status`, `eth_status0`, `eth_status1`, `ddr_status`, `fan_speed`, `fan_rpm`, `heartbeat`, `tdp_limit`, `tdc_limit`, `thermal_limit`, `dram_speed`), so the board, firmware, health, fan, PCIe and DRAM series above all appear; the register keys travel as their own series and never as `all_smi_gpu_info` labels. `all_smi_tenstorrent_collection_method_info`, `all_smi_tenstorrent_outlet1_temperature_celsius`, `all_smi_tenstorrent_outlet2_temperature_celsius` and `all_smi_tenstorrent_power_raw_watts` are gone: luwen exposes no outlet sensor, the collection method is already an `all_smi_gpu_info` label (`lib_name` = `Luwen`), and the raw power reading already ships as `all_smi_gpu_power_consumption_watts`.
+
 ### Rebellions NPU Metrics
 
 #### Basic NPU Metrics
-| Metric                                | Description                | Unit    | Labels                                    |
-|---------------------------------------|----------------------------|---------|-------------------------------------------|
-| `all_smi_gpu_utilization`             | NPU utilization percentage | percent | `gpu_index`, `gpu_name`                   |
-| `all_smi_gpu_memory_used_bytes`       | NPU memory used            | bytes   | `gpu_index`, `gpu_name`                   |
-| `all_smi_gpu_memory_total_bytes`      | NPU memory total           | bytes   | `gpu_index`, `gpu_name`                   |
-| `all_smi_gpu_temperature_celsius`     | NPU temperature            | celsius | `gpu_index`, `gpu_name`                   |
-| `all_smi_gpu_power_consumption_watts` | NPU power consumption      | watts   | `gpu_index`, `gpu_name`                   |
-| `all_smi_gpu_frequency_mhz`           | NPU clock frequency        | MHz     | `gpu_index`, `gpu_name`                   |
-| `all_smi_gpu_info`                    | NPU device information     | info    | `gpu_index`, `gpu_name`, `driver_version` |
+| Metric                                | Description                | Unit    | Labels                                                    |
+|---------------------------------------|----------------------------|---------|-----------------------------------------------------------|
+| `all_smi_gpu_utilization`             | NPU utilization percentage | percent | `gpu`, `instance`, `gpu_uuid`, `gpu_index`             |
+| `all_smi_gpu_memory_used_bytes`       | NPU memory used            | bytes   | `gpu`, `instance`, `gpu_uuid`, `gpu_index`             |
+| `all_smi_gpu_memory_total_bytes`      | NPU memory total           | bytes   | `gpu`, `instance`, `gpu_uuid`, `gpu_index`             |
+| `all_smi_gpu_temperature_celsius`     | NPU temperature            | celsius | `gpu`, `instance`, `gpu_uuid`, `gpu_index`             |
+| `all_smi_gpu_power_consumption_watts` | NPU power consumption      | watts   | `gpu`, `instance`, `gpu_uuid`, `gpu_index`             |
+| `all_smi_gpu_info`                    | NPU device information     | gauge   | Base labels plus `type` and available detail fields         |
 
 #### Rebellions-Specific Metrics
 | Metric                                    | Description                          | Unit  | Labels                                                               |
 |-------------------------------------------|--------------------------------------|-------|----------------------------------------------------------------------|
-| `all_smi_rebellions_device_info`          | Device model and variant information | info  | `npu`, `instance`, `npu_uuid`, `npu_index`, `model`, `variant`              |
-| `all_smi_rebellions_firmware_info`        | NPU firmware version                 | info  | `npu`, `instance`, `npu_uuid`, `npu_index`, `firmware_version`              |
-| `all_smi_rebellions_kmd_info`             | Kernel Mode Driver version           | info  | `npu`, `instance`, `npu_uuid`, `npu_index`, `kmd_version`                   |
-| `all_smi_rebellions_device_status`        | Device operational status            | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`                                  |
-| `all_smi_rebellions_performance_state`    | NPU performance state (P0-P15)       | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`                                  |
-| `all_smi_rebellions_pcie_generation`      | PCIe generation (Gen4)               | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`                                  |
-| `all_smi_rebellions_pcie_width`           | PCIe link width (x16)                | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`                                  |
-| `all_smi_rebellions_memory_bandwidth_gbps`| Memory bandwidth capacity            | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`                                  |
-| `all_smi_rebellions_compute_tops`         | Compute capacity in TOPS             | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`                                  |
+| `all_smi_rebellions_device_info`       | Device model, board serial and slot     | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`, `model`, `sid`, `location` |
+| `all_smi_rebellions_firmware_info`     | NPU firmware version                    | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`, `firmware`                 |
+| `all_smi_rebellions_kmd_info`          | Kernel Mode Driver version              | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`, `version`                    |
+| `all_smi_rebellions_pstate_info`       | Current performance state (P0-P15)      | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`, `pstate`                   |
+| `all_smi_rebellions_status`            | Device operational status               | gauge | `npu`, `instance`, `npu_uuid`, `npu_index`, `status`                   |
+| `all_smi_gpu_card_power_watts`         | Power of the card this die sits on, for display only. **Do not sum.** | gauge | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
 
-Note: Rebellions NPUs support ATOM, ATOM+, and ATOM Max variants with varying compute and memory capabilities. All variants use PCIe Gen4 x16 interface.
+Note: Rebellions NPUs come as ATOM, ATOM+ and ATOM Max boards. On ATOM Max a single
+physical card carries four dies, and `rbln-stat` enumerates dies rather than cards --
+group by the `sid` label to recover cards. Both ATOM+ (`RBLN-CA22`) and ATOM Max
+(`RBLN-CA25`) report a PCIe 32.0 GT/s x16 link, i.e. Gen5 x16.
+
+Power on ATOM Max: `rbln-stat` reports one power figure per card and repeats it on
+every die. `all_smi_gpu_power_consumption_watts` is therefore emitted once per card,
+on the die with the lowest kernel index (`rblnN`) among the dies sharing a `sid`; the
+other three dies of the card have no power series, so
+`sum by (instance) (all_smi_gpu_power_consumption_watts)` is the real NPU draw.
+
+The per-card value is also published on every die of a multi-die card as
+`all_smi_gpu_card_power_watts`, with the same labels as the power series, so each die's
+row can show the draw of the card it sits on. **Do not sum or average it**: all four dies
+of a card repeat one board reading, so `sum(all_smi_gpu_card_power_watts)` reports four
+times the node's real draw, which is exactly the overcount that the one-series-per-card
+rule above exists to prevent. Use it per device, or with `max by (sid)`, and sum
+`all_smi_gpu_power_consumption_watts` when you want a total. ATOM+ is one die per card,
+so every ATOM+ device reports its own power and publishes no
+`all_smi_gpu_card_power_watts` series.
 
 ### Furiosa NPU Metrics
 
@@ -615,10 +689,13 @@ Note: Furiosa NPUs use the RNGD architecture with 8 cores per NPU. Each core con
 | `all_smi_gpu_utilization`             | NPU utilization percentage | percent | `gpu_index`, `gpu_name`                   |
 | `all_smi_gpu_memory_used_bytes`       | NPU memory used            | bytes   | `gpu_index`, `gpu_name`                   |
 | `all_smi_gpu_memory_total_bytes`      | NPU memory total           | bytes   | `gpu_index`, `gpu_name`                   |
+| `all_smi_gpu_memory_free_bytes`       | NPU memory free            | bytes   | `gpu`, `instance`, `gpu_uuid`, `gpu_index` |
 | `all_smi_gpu_temperature_celsius`     | NPU temperature            | celsius | `gpu_index`, `gpu_name`                   |
 | `all_smi_gpu_power_consumption_watts` | NPU power consumption      | watts   | `gpu_index`, `gpu_name`                   |
 | `all_smi_gpu_frequency_mhz`           | NPU clock frequency        | MHz     | `gpu_index`, `gpu_name`                   |
 | `all_smi_gpu_info`                    | NPU device information     | info    | `gpu_index`, `gpu_name`, `driver_version` |
+
+`all_smi_gpu_memory_free_bytes` is taken from hl-smi's own CSV column rather than derived as `all_smi_gpu_memory_total_bytes` minus `all_smi_gpu_memory_used_bytes`, so it is the tool's reading and not an approximation of one. The old `Free Memory` label on `all_smi_gpu_info` is gone: the reading ships only as this gauge.
 
 #### Intel Gaudi-Specific Metrics
 | Metric                                        | Description                              | Unit    | Labels                                                        |
@@ -929,16 +1006,13 @@ rate(all_smi_tenstorrent_arc0_health[5m]) == 0
 
 ### Rebellions NPU Specific
 ```promql
-# NPUs in low performance state
-all_smi_rebellions_performance_state > 0
+# NPUs in lower performance states (P6-P15)
+all_smi_rebellions_pstate_info{pstate=~"P([6-9]|1[0-5])"} == 1
 
 # Devices with non-operational status
-all_smi_rebellions_device_status != 1
+all_smi_rebellions_status == 0
 
-# Power efficiency (TOPS per watt)
-all_smi_rebellions_compute_tops / all_smi_gpu_power_consumption_watts
-
-# Memory bandwidth saturation check
+# Device memory saturation
 (all_smi_gpu_memory_used_bytes / all_smi_gpu_memory_total_bytes) > 0.9
 ```
 
@@ -1104,12 +1178,12 @@ groups:
           summary: "Tenstorrent NPU {{ $labels.instance }} is throttling"
           
       - alert: RebellionsNPULowPerformance
-        expr: all_smi_rebellions_performance_state > 5
+        expr: all_smi_rebellions_pstate_info{pstate=~"P([6-9]|1[0-5])"} == 1
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: "Rebellions NPU {{ $labels.instance }} stuck in low performance state P{{ $value }}"
+          summary: "Rebellions NPU {{ $labels.instance }} stuck in low performance state {{ $labels.pstate }}"
           
       - alert: FuriosaNPUCoreFailure
         expr: all_smi_furiosa_core_status == 0
@@ -1193,7 +1267,7 @@ Higher update rates provide more real-time data but increase system load. For pr
 4. Some metrics may not be available on all platforms
 5. Process metrics require the `--processes` flag and may impact performance
 6. Tenstorrent NPU metrics include comprehensive hardware monitoring data:
-   - Multiple temperature sensors (ASIC, voltage regulator, inlet/outlet)
+   - Multiple temperature sensors (ASIC, voltage regulator, inlet)
    - Detailed firmware versions and health counters
    - Power limits (TDP/TDC) and throttling information
    - PCIe and DDR status registers for diagnostics
@@ -1202,7 +1276,10 @@ Higher update rates provide more real-time data but increase system load. For pr
    - Performance state monitoring (P0-P15) for power management
    - Device status and KMD version tracking
    - Support for ATOM, ATOM+, and ATOM Max variants
-   - PCIe Gen4 x16 interface metrics
+   - Board serial and die-position labels for grouping ATOM Max dies by physical card
+   - ATOM Max card power counted once per card (one power series per `sid`), with the
+     card value on every die as `all_smi_gpu_card_power_watts`, which is for display
+     only and must not be summed
 9. Furiosa NPU metrics include:
    - Per-core PE utilization monitoring
    - Core availability status tracking
@@ -1242,3 +1319,4 @@ Higher update rates provide more real-time data but increase system load. For pr
     - Thermal thresholds (`all_smi_gpu_temperature_threshold_{slowdown,shutdown,max_operating,acoustic}_celsius`) and the canonical `all_smi_gpu_performance_state` gauge
     - Emitted only when the driver exposes the underlying NVML APIs; older drivers silently omit these metrics
     - Set `ALL_SMI_MOCK_HARDWARE_DETAILS=1` (with `--features mock` build) to have the mock emit the full extended hardware-detail set; when unset, the mock simulates an older driver
+15. `all_smi_gpu_info` carries device identity only. A changing reading does not belong on it, because a moving label starts a new Prometheus series on every scrape; each such reading has a dedicated series instead. The readings that used to ride on the label set, where to read each of them now, and the few not yet migrated (issue #434) are covered under "`all_smi_gpu_info` carries device identity only" above.

@@ -14,14 +14,10 @@
 
 use super::{MetricBuilder, MetricExporter};
 use crate::device::GpuInfo;
+use crate::device::readers::detail_keys;
+use crate::device::readers::detail_keys::FAN_SPEED_DETAIL_KEY;
 use crate::device::types::MAX_GPU_FAN_RPM;
 use crate::parsing::common::{sanitize_label_name, sanitize_label_value};
-
-/// Legacy `detail` key every reader used before `GpuInfo::fan_speed_rpm`
-/// existed, and still writes alongside it. `sanitize_label_name` turns the
-/// key into the `fan_speed` label on `all_smi_gpu_info`, which is how a node
-/// running an older build puts the reading on the wire.
-pub(crate) const FAN_SPEED_DETAIL_KEY: &str = "Fan Speed";
 
 /// Recover an RPM reading from the legacy `Fan Speed` detail string.
 ///
@@ -50,6 +46,26 @@ pub(crate) fn parse_fan_speed_detail(value: &str) -> Option<f64> {
     let rpm = rpm.trim().parse::<f64>().ok()?;
     (rpm.is_finite() && rpm.fract() == 0.0 && (0.0..=f64::from(MAX_GPU_FAN_RPM)).contains(&rpm))
         .then_some(rpm)
+}
+
+/// Recover a fan duty cycle from the legacy `Fan Speed` detail string.
+///
+/// A Level Zero device whose driver exposes no tachometer spells its fan
+/// reading as a bare percentage (`"40%"`); [`parse_fan_speed_detail`]
+/// correctly refuses to publish that as an RPM, so it would otherwise reach
+/// no series at all. It is a reading of its own, and this parses it for the
+/// `all_smi_gpu_fan_duty_cycle` gauge. Any value carrying a tachometer
+/// reading (`"1450 RPM"`, `"1600 RPM (40%)"`) returns `None`: the duty
+/// cycle there rides beside an RPM the fan-speed gauge already covers, and
+/// publishing one from a mixed string would make the two families describe
+/// different samples. Bounded to 0..=100, as a duty cycle is.
+fn parse_fan_duty_cycle_detail(value: &str) -> Option<f64> {
+    if value.contains(" RPM") {
+        return None;
+    }
+    let percent = value.trim().strip_suffix('%')?;
+    let percent = percent.trim().parse::<f64>().ok()?;
+    (percent.is_finite() && (0.0..=100.0).contains(&percent)).then_some(percent)
 }
 
 pub struct GpuMetricExporter<'a> {
@@ -112,6 +128,21 @@ impl<'a> GpuMetricExporter<'a> {
                 info.total_memory,
             );
 
+        // Free memory, the third figure of the family above: the Gaudi
+        // reader writes the live reading under `detail` in mebibytes, taken
+        // from hl-smi's own CSV column, so it is read back through the
+        // parser rather than approximated as total minus used (which is not
+        // guaranteed exact when the two columns are sampled apart). The
+        // volatile-detail registration removes the string from
+        // `all_smi_gpu_info`, so this gauge is the reading's only wire
+        // route.
+        if let Some(free_bytes) = detail_keys::free_memory_bytes(&info.detail) {
+            builder
+                .help("all_smi_gpu_memory_free_bytes", "GPU memory free in bytes")
+                .type_("all_smi_gpu_memory_free_bytes", "gauge")
+                .metric("all_smi_gpu_memory_free_bytes", &base_labels, free_bytes);
+        }
+
         // Temperature. Omitted when no sensor answered — a powered die never
         // reads 0 °C, so the old unconditional `0` made a missing SMC/NVML
         // key look like a cryogenic GPU.
@@ -134,6 +165,28 @@ impl<'a> GpuMetricExporter<'a> {
                 )
                 .type_("all_smi_gpu_power_consumption_watts", "gauge")
                 .metric("all_smi_gpu_power_consumption_watts", &base_labels, power);
+        }
+
+        // Board power, repeated identically on every device of a multi-device
+        // board. Carried in `detail` by the readers whose tool reports one
+        // power figure per board (the four dies of a Rebellions ATOM Max
+        // card), and read back through the same validator the TUI uses, so an
+        // absent or unparsable value publishes neither a label nor a sample.
+        //
+        // It is a separate family rather than a label on `all_smi_gpu_info`
+        // because it is a live reading: as a label it gave every die a new
+        // label set, and therefore a new series, on nearly every scrape. The
+        // `gpu_` prefix is load-bearing on the way back in, since the remote
+        // parser routes only `gpu_`, `npu_`, `nvlink_` and `ane_utilization`
+        // into the device accumulator.
+        if let Some(card_watts) = detail_keys::card_power_watts(&info.detail) {
+            builder
+                .help(
+                    "all_smi_gpu_card_power_watts",
+                    "Power of the physical board this device sits on, in watts, for display only. The same board value is repeated on every device of the board, so summing this metric multiplies a board's real draw by its device count (issue #418); sum all_smi_gpu_power_consumption_watts instead, which counts each board exactly once.",
+                )
+                .type_("all_smi_gpu_card_power_watts", "gauge")
+                .metric("all_smi_gpu_card_power_watts", &base_labels, card_watts);
         }
 
         // Frequency. Omitted when the platform has no clock probe. This also
@@ -247,11 +300,32 @@ impl<'a> GpuMetricExporter<'a> {
         // Convert detail HashMap to label pairs with sanitized names and values.
         // Values are sanitized to strip control characters and prevent
         // injection of ANSI escape sequences from NVML.
-        let detail_labels: Vec<(String, String)> = info
+        //
+        // Keys registered in `detail_keys::VOLATILE_DETAIL_KEYS` are dropped
+        // first, before sanitizing, so this series carries device identity
+        // only. A label whose value moves between polls would give the device
+        // a new label set, and therefore a new Prometheus series, on nearly
+        // every scrape; each registered key's reading has a series of its own
+        // instead. This filters the *label set* and never `detail` itself, so
+        // the TUI, the snapshot writer and every exporter that reads a
+        // registered key out of `detail` (notably `all_smi_combined_power_watts`
+        // above) are unaffected.
+        let mut detail_labels: Vec<(String, String)> = info
             .detail
             .iter()
+            .filter(|(key, _)| !detail_keys::is_volatile_detail_key(key))
             .map(|(k, v)| (sanitize_label_name(k), sanitize_label_value(v)))
             .collect();
+
+        // `detail` is a `HashMap`, so its iteration order differs between the
+        // maps two consecutive polls build. Prometheus reads a label set
+        // rather than a line, so the order never affected series identity,
+        // but it does make the exposition text differ from scrape to scrape,
+        // which hides exactly the churn this filter removes: diffing two
+        // scrapes could not tell a reordered line from a new series. Sorting
+        // makes an unchanged device render byte-identically, so that diff is
+        // a usable check.
+        detail_labels.sort();
 
         builder
             .help("all_smi_gpu_info", "GPU/NPU device information")
@@ -283,8 +357,11 @@ impl<'a> GpuMetricExporter<'a> {
             ("gpu_index", row.index_str.as_str()),
         ];
 
-        // PCIe metrics
-        if let Some(pcie_gen) = info.detail.get("pcie_gen_current")
+        // PCIe metrics. The keys are the shared writer's constants
+        // (`detail_keys::insert_pcie_details` writes exactly these), so the
+        // lookup cannot drift from what the NVIDIA and Linux AMD readers
+        // write.
+        if let Some(pcie_gen) = info.detail.get(detail_keys::PCIE_GEN_CURRENT_DETAIL_KEY)
             && let Ok(pcie_gen_value) = pcie_gen.parse::<f64>()
         {
             builder
@@ -293,7 +370,7 @@ impl<'a> GpuMetricExporter<'a> {
                 .metric("all_smi_gpu_pcie_gen_current", &base_labels, pcie_gen_value);
         }
 
-        if let Some(pcie_width) = info.detail.get("pcie_width_current")
+        if let Some(pcie_width) = info.detail.get(detail_keys::PCIE_WIDTH_CURRENT_DETAIL_KEY)
             && let Ok(width) = pcie_width.parse::<f64>()
         {
             builder
@@ -325,6 +402,183 @@ impl<'a> GpuMetricExporter<'a> {
                 )
                 .type_("all_smi_gpu_clock_memory_max_mhz", "gauge")
                 .metric("all_smi_gpu_clock_memory_max_mhz", &base_labels, clock);
+        }
+
+        // Current memory clock, same shape as the maximum above: the Linux
+        // AMD plugin and the Windows AMD ADL reader write the live reading
+        // under `detail_keys::CLOCK_MEMORY_CURRENT_DETAIL_KEY` on every
+        // poll, and it travels as this gauge (registered as a volatile
+        // detail key, so it never becomes an `all_smi_gpu_info` label).
+        // Omitted when the key is absent or unparsable, matching the
+        // "absence means no data" convention above.
+        if let Some(clock_current) = info
+            .detail
+            .get(detail_keys::CLOCK_MEMORY_CURRENT_DETAIL_KEY)
+            && let Ok(clock) = clock_current.parse::<f64>()
+        {
+            builder
+                .help(
+                    "all_smi_gpu_clock_memory_current_mhz",
+                    "Current memory clock in MHz",
+                )
+                .type_("all_smi_gpu_clock_memory_current_mhz", "gauge")
+                .metric("all_smi_gpu_clock_memory_current_mhz", &base_labels, clock);
+        }
+
+        // AMD ADL sensor readings (Windows). Each block reads the shared
+        // constant out of `detail` and parses the leading number, the unit
+        // being decoration the reader kept in the value. All three are
+        // volatile-detail registrations, so the gauges below are each
+        // reading's only wire route. Omitted when the sensor did not
+        // answer, matching the "absence means no data" convention above.
+        if let Some(hotspot) = info.detail.get(detail_keys::HOTSPOT_TEMPERATURE_DETAIL_KEY)
+            && let Some(temperature) = detail_keys::leading_number(hotspot)
+        {
+            builder
+                .help(
+                    "all_smi_gpu_hotspot_temperature_celsius",
+                    "GPU hotspot temperature in celsius, the sensor a modern card actually throttles on (runs 15-30 C above the edge sensor `all_smi_gpu_temperature_celsius` carries)",
+                )
+                .type_("all_smi_gpu_hotspot_temperature_celsius", "gauge")
+                .metric(
+                    "all_smi_gpu_hotspot_temperature_celsius",
+                    &base_labels,
+                    temperature,
+                );
+        }
+
+        if let Some(memory) = info.detail.get(detail_keys::MEMORY_TEMPERATURE_DETAIL_KEY)
+            && let Some(temperature) = detail_keys::leading_number(memory)
+        {
+            builder
+                .help(
+                    "all_smi_gpu_memory_temperature_celsius",
+                    "GPU memory die temperature in celsius",
+                )
+                .type_("all_smi_gpu_memory_temperature_celsius", "gauge")
+                .metric(
+                    "all_smi_gpu_memory_temperature_celsius",
+                    &base_labels,
+                    temperature,
+                );
+        }
+
+        if let Some(activity) = info
+            .detail
+            .get(detail_keys::MEMORY_CONTROLLER_ACTIVITY_DETAIL_KEY)
+            && let Some(percent) = detail_keys::leading_number(activity)
+        {
+            builder
+                .help(
+                    "all_smi_gpu_memory_controller_activity",
+                    "GPU memory controller activity percentage",
+                )
+                .type_("all_smi_gpu_memory_controller_activity", "gauge")
+                .metric(
+                    "all_smi_gpu_memory_controller_activity",
+                    &base_labels,
+                    percent,
+                );
+        }
+
+        // Per-process VRAM figures from the Windows DXGI layer. Both are
+        // scoped to the process running all-smi, which is always the
+        // exporter itself and one agent runs per host, so the dimension
+        // collapses onto the device row: the label set stays standard and
+        // the metric name carries the scoping. Both are deliberately
+        // excluded from the system-wide `used_memory` field, which counts
+        // every process.
+        if let Some(usage) = info.detail.get(detail_keys::VRAM_USAGE_PROCESS_DETAIL_KEY)
+            && let Some(bytes) = detail_keys::detail_bytes(usage)
+        {
+            builder
+                .help(
+                    "all_smi_gpu_process_vram_used_bytes",
+                    "VRAM bytes used by the process running all-smi on this adapter (Windows DXGI, scoped to the exporter's own process)",
+                )
+                .type_("all_smi_gpu_process_vram_used_bytes", "gauge")
+                .metric("all_smi_gpu_process_vram_used_bytes", &base_labels, bytes);
+        }
+
+        if let Some(budget) = info.detail.get(detail_keys::VRAM_BUDGET_PROCESS_DETAIL_KEY)
+            && let Some(bytes) = detail_keys::detail_bytes(budget)
+        {
+            builder
+                .help(
+                    "all_smi_gpu_process_vram_budget_bytes",
+                    "VRAM budget of the process running all-smi on this adapter (Windows DXGI, scoped to the exporter's own process)",
+                )
+                .type_("all_smi_gpu_process_vram_budget_bytes", "gauge")
+                .metric("all_smi_gpu_process_vram_budget_bytes", &base_labels, bytes);
+        }
+
+        // Intel engine utilization, one row per discovered engine class.
+        // Both Intel layers build the keys at runtime under the registry's
+        // reserved `Engine: ` prefix (`"Engine: render"` in sysfs,
+        // `"Engine: render (L0)"` in Level Zero), so the `engine` label
+        // carries the rest of the key verbatim, Level Zero's qualifier
+        // included, and the two provenances stay distinct series rather
+        // than flipping one series between samples.
+        for (key, pct) in info
+            .detail
+            .iter()
+            .filter(|(key, _)| key.starts_with(detail_keys::ENGINE_DETAIL_KEY_PREFIX))
+        {
+            let Some(pct_value) = detail_keys::leading_number(pct) else {
+                continue;
+            };
+            let Some(engine) = key.strip_prefix(detail_keys::ENGINE_DETAIL_KEY_PREFIX) else {
+                continue;
+            };
+            let engine_labels = [
+                ("gpu", info.name.as_str()),
+                ("instance", info.instance.as_str()),
+                ("gpu_uuid", info.uuid.as_str()),
+                ("gpu_index", row.index_str.as_str()),
+                ("engine", engine),
+            ];
+            builder
+                .help(
+                    "all_smi_gpu_engine_utilization",
+                    "GPU engine utilization percentage, one row per engine class",
+                )
+                .type_("all_smi_gpu_engine_utilization", "gauge")
+                .metric("all_smi_gpu_engine_utilization", &engine_labels, pct_value);
+        }
+
+        // Intel Level Zero clock domains, one row per discovered clock
+        // domain, built the same way at runtime under the registry's
+        // reserved `Frequency: ` prefix.
+        for (key, mhz) in info
+            .detail
+            .iter()
+            .filter(|(key, _)| key.starts_with(detail_keys::FREQUENCY_DOMAIN_DETAIL_KEY_PREFIX))
+        {
+            let Some(mhz_value) = detail_keys::leading_number(mhz) else {
+                continue;
+            };
+            let Some(domain) = key.strip_prefix(detail_keys::FREQUENCY_DOMAIN_DETAIL_KEY_PREFIX)
+            else {
+                continue;
+            };
+            let domain_labels = [
+                ("gpu", info.name.as_str()),
+                ("instance", info.instance.as_str()),
+                ("gpu_uuid", info.uuid.as_str()),
+                ("gpu_index", row.index_str.as_str()),
+                ("domain", domain),
+            ];
+            builder
+                .help(
+                    "all_smi_gpu_clock_domain_current_mhz",
+                    "GPU clock domain frequency in MHz, one row per clock domain",
+                )
+                .type_("all_smi_gpu_clock_domain_current_mhz", "gauge")
+                .metric(
+                    "all_smi_gpu_clock_domain_current_mhz",
+                    &domain_labels,
+                    mhz_value,
+                );
         }
 
         // Power limit metrics
@@ -411,6 +665,25 @@ impl<'a> GpuMetricExporter<'a> {
                 )
                 .type_("all_smi_gpu_fan_speed_rpm", "gauge")
                 .metric("all_smi_gpu_fan_speed_rpm", &base_labels, rpm);
+        }
+
+        // Fan duty cycle, the reading the block above refuses to publish as
+        // an RPM: a Level Zero device whose driver exposes no tachometer
+        // spells a bare percentage, which would otherwise reach no series at
+        // all. Gated on the typed field being unset so a card reporting both
+        // keeps one sample per family, and bounded by the parser to
+        // 0..=100.
+        if info.fan_speed_rpm.is_none()
+            && let Some(fan) = info.detail.get(FAN_SPEED_DETAIL_KEY)
+            && let Some(percent) = parse_fan_duty_cycle_detail(fan)
+        {
+            builder
+                .help(
+                    "all_smi_gpu_fan_duty_cycle",
+                    "GPU fan duty cycle in percent (metric is omitted when the device reports a tachometer reading instead)",
+                )
+                .type_("all_smi_gpu_fan_duty_cycle", "gauge")
+                .metric("all_smi_gpu_fan_duty_cycle", &base_labels, percent);
         }
     }
 
@@ -958,6 +1231,695 @@ mod tests {
         assert!(output.contains("all_smi_ane_utilization{"));
         // `all_smi_ane_power_watts` stays Apple-only, as before.
         assert!(!output.contains("all_smi_ane_power_watts{"));
+    }
+
+    /// The `all_smi_gpu_info` line for a device whose `detail` holds
+    /// `entries`, rendered through the real exporter.
+    fn identity_line(name: &str, entries: &[(&str, &str)]) -> String {
+        let mut gpu = make_nvidia_gpu();
+        gpu.name = name.to_string();
+        for (key, value) in entries {
+            gpu.detail.insert((*key).to_string(), (*value).to_string());
+        }
+        GpuMetricExporter::new(&[gpu])
+            .export_metrics()
+            .lines()
+            .find(|line| line.starts_with("all_smi_gpu_info{"))
+            .unwrap_or_else(|| panic!("identity series missing for {name}"))
+            .to_string()
+    }
+
+    /// The same line for a device whose `detail` is a map, as the shared
+    /// writers build them. Sorting keeps the rendering independent of the
+    /// map's iteration order, as the exporter itself does.
+    fn identity_line_map(name: &str, detail: &HashMap<String, String>) -> String {
+        let mut entries: Vec<(String, String)> =
+            detail.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        entries.sort();
+        let refs: Vec<(&str, &str)> = entries
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        identity_line(name, &refs)
+    }
+
+    /// Issue #425: `all_smi_gpu_info` identifies a device, so its label set
+    /// must not move when a reading does. Every registered key gets its own
+    /// assertion, naming the key, so reverting the filter for one key fails
+    /// on that key instead of hiding behind a neighbour.
+    #[test]
+    fn no_registered_volatile_key_reaches_the_identity_label_set() {
+        for key in detail_keys::VOLATILE_DETAIL_KEYS {
+            let first = identity_line("NVIDIA A100", &[(key, "1")]);
+            let second = identity_line("NVIDIA A100", &[(key, "2")]);
+            assert_eq!(
+                first, second,
+                "{key} changed the identity label set between polls"
+            );
+            let label = format!("{}=\"", sanitize_label_name(key));
+            assert!(
+                !first.contains(&label),
+                "{key} reached the identity series as {label}: {first}"
+            );
+        }
+    }
+
+    /// The Tenstorrent half of the label-stability criterion, hand-built so
+    /// it runs on every platform: the reader itself is Linux-only, but the
+    /// export path it feeds is not.
+    #[test]
+    fn a_tenstorrent_shaped_device_keeps_one_identity_series_across_polls() {
+        let stable: &[(&str, &str)] = &[
+            ("board_type", "n300"),
+            ("arc_fw_version", "2.28.0.0"),
+            ("lib_name", "Luwen"),
+        ];
+        let poll = |voltage, current, asic, vreg, inlet, ai, arc, axi| {
+            let mut entries = stable.to_vec();
+            entries.extend_from_slice(&[
+                ("voltage", voltage),
+                ("current", current),
+                ("asic_temperature", asic),
+                ("vreg_temperature", vreg),
+                ("inlet_temperature", inlet),
+                ("aiclk_mhz", ai),
+                ("arcclk_mhz", arc),
+                ("axiclk_mhz", axi),
+            ]);
+            identity_line("Tenstorrent Wormhole n300", &entries)
+        };
+
+        let first = poll(
+            "0.800", "12.34", "45.0", "45.0", "32.0", "800", "540", "900",
+        );
+        let second = poll(
+            "0.812", "13.01", "47.5", "46.2", "33.0", "1000", "540", "900",
+        );
+        assert_eq!(first, second, "a Tenstorrent poll moved the label set");
+
+        // The identity labels are still there: this filters readings, not
+        // the series.
+        assert!(first.contains("board_type=\"n300\""), "{first}");
+        assert!(first.contains("arc_fw_version=\"2.28.0.0\""), "{first}");
+        assert!(first.contains("lib_name=\"Luwen\""), "{first}");
+    }
+
+    /// Issue #433: the two PCIe current gauges read exactly the keys the
+    /// shared `detail_keys::insert_pcie_details` writer produces, so the
+    /// map is sourced from the helper and the test fails when either end
+    /// drifts. A test that inserted the keys by hand would pass on current
+    /// `main` and prove nothing.
+    #[test]
+    fn exporter_emits_pcie_current_gauges_from_the_shared_writer() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.name = "NVIDIA H100 80GB HBM3".to_string();
+        detail_keys::insert_pcie_details(&mut gpu.detail, Some(4), Some(16), Some(5), Some(16));
+
+        let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+
+        let gen_gauge = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_pcie_gen_current{"))
+            .unwrap_or_else(|| panic!("gen gauge missing:\n{output}"));
+        assert!(
+            gen_gauge.ends_with(" 4"),
+            "expected a bare 4 sample, got {gen_gauge}"
+        );
+        let width_gauge = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_pcie_width_current{"))
+            .unwrap_or_else(|| panic!("width gauge missing:\n{output}"));
+        assert!(
+            width_gauge.ends_with(" 16"),
+            "expected a bare 16 sample, got {width_gauge}"
+        );
+        for gauge in [gen_gauge, width_gauge] {
+            for label in ["gpu=\"", "instance=\"", "gpu_uuid=\"", "gpu_index=\""] {
+                assert!(gauge.contains(label), "{label} missing from {gauge}");
+            }
+        }
+
+        // The gauges carry the current readings; the identity series keeps
+        // the maximums and carries none of the current pair, which moved to
+        // the gauges.
+        let info_line = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_info{"))
+            .unwrap_or_else(|| panic!("identity series missing:\n{output}"));
+        for stale in [
+            "pcie_generation=\"",
+            "pcie_width=\"",
+            "pcie_gen_current=\"",
+            "pcie_width_current=\"",
+        ] {
+            assert!(
+                !info_line.contains(stale),
+                "{stale} reached the identity series: {info_line}"
+            );
+        }
+        assert!(info_line.contains("pcie_gen_max=\"5\""), "{info_line}");
+        assert!(info_line.contains("pcie_width_max=\"16\""), "{info_line}");
+    }
+
+    /// The AMD half of the label-stability criterion, hand-built so it runs
+    /// on every platform: the plugin itself is Linux-only, but the export
+    /// path it feeds is not. Each poll's map is built through the shared
+    /// writers, so the test fails when either the reader's keys or the
+    /// registry drifts.
+    #[test]
+    fn an_amd_shaped_device_keeps_one_identity_series_across_polls() {
+        let poll = |link_gen: u32, fan_rpm: u32, mclk: &str| {
+            let mut detail = HashMap::new();
+            detail.insert("lib_name".to_string(), "ROCm".to_string());
+            detail.insert("Max GPU Link".to_string(), "Gen4 x16".to_string());
+            detail_keys::insert_pcie_details(&mut detail, Some(link_gen), Some(16), None, None);
+            detail.insert("Fan Speed".to_string(), format!("{fan_rpm} RPM"));
+            detail.insert(
+                detail_keys::CLOCK_MEMORY_CURRENT_DETAIL_KEY.to_string(),
+                mclk.to_string(),
+            );
+            identity_line_map("AMD Radeon RX 7900 XTX", &detail)
+        };
+
+        let first = poll(1, 0, "96");
+        let second = poll(4, 1450, "1249");
+        assert_eq!(first, second, "an AMD poll moved the label set");
+
+        // The identity labels are still there.
+        assert!(first.contains("lib_name=\"ROCm\""), "{first}");
+        assert!(first.contains("max_gpu_link=\"Gen4 x16\""), "{first}");
+        // And none of the per-poll readings reached the identity series.
+        for stale in [
+            "pcie_gen_current=\"",
+            "pcie_width_current=\"",
+            "fan_speed=\"",
+            "clock_memory_current=\"",
+            "current_link=\"",
+            "memory_clock=\"",
+        ] {
+            assert!(
+                !first.contains(stale),
+                "{stale} reached the identity series: {first}"
+            );
+        }
+    }
+
+    /// Issue #434: the Gaudi reading's new home. The `MiB`-suffixed detail
+    /// string becomes a byte count on its own gauge, and the identity series
+    /// carries none of it.
+    #[test]
+    fn exporter_emits_the_gaudi_free_memory_gauge() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.name = "Intel Gaudi 3".to_string();
+        gpu.detail.insert(
+            detail_keys::FREE_MEMORY_DETAIL_KEY.to_string(),
+            "97076 MiB".to_string(),
+        );
+
+        let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+
+        let line = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_memory_free_bytes{"))
+            .unwrap_or_else(|| panic!("free memory gauge missing:\n{output}"));
+        assert!(
+            line.ends_with(&format!(" {}", 97_076u64 * 1024 * 1024)),
+            "expected the detail reading in bytes, got {line}"
+        );
+        for label in ["gpu=\"Intel Gaudi 3\"", "gpu_index=\"0\""] {
+            assert!(line.contains(label), "{label} missing from {line}");
+        }
+
+        let info = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_info{"))
+            .expect("identity series");
+        assert!(
+            !info.contains("free_memory=\""),
+            "the reading is still a label: {info}"
+        );
+    }
+
+    /// The AMD ADL sensor gauges read exactly the keys the shared constants
+    /// name, so the map is sourced from the constants and the test fails
+    /// when either the reader's keys or the registry drifts. Also covers
+    /// the Windows memory clock feeding the same gauge the Linux plugin
+    /// feeds.
+    #[test]
+    fn exporter_emits_the_amd_adl_sensor_gauges_from_the_shared_constants() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.name = "AMD Radeon RX 7900 XTX".to_string();
+        gpu.detail.insert(
+            detail_keys::HOTSPOT_TEMPERATURE_DETAIL_KEY.to_string(),
+            "81 C".to_string(),
+        );
+        gpu.detail.insert(
+            detail_keys::MEMORY_TEMPERATURE_DETAIL_KEY.to_string(),
+            "70 C".to_string(),
+        );
+        gpu.detail.insert(
+            detail_keys::MEMORY_CONTROLLER_ACTIVITY_DETAIL_KEY.to_string(),
+            "44%".to_string(),
+        );
+        gpu.detail.insert(
+            detail_keys::CLOCK_MEMORY_CURRENT_DETAIL_KEY.to_string(),
+            "1250".to_string(),
+        );
+
+        let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+
+        for (family, expected) in [
+            ("all_smi_gpu_hotspot_temperature_celsius{", " 81"),
+            ("all_smi_gpu_memory_temperature_celsius{", " 70"),
+            ("all_smi_gpu_memory_controller_activity{", " 44"),
+            ("all_smi_gpu_clock_memory_current_mhz{", " 1250"),
+        ] {
+            let line = output
+                .lines()
+                .find(|l| l.starts_with(family))
+                .unwrap_or_else(|| panic!("{family} missing:\n{output}"));
+            assert!(
+                line.ends_with(expected),
+                "{family} expected {expected}, got {line}"
+            );
+            for label in ["gpu=\"", "instance=\"", "gpu_uuid=\"", "gpu_index=\""] {
+                assert!(line.contains(label), "{label} missing from {line}");
+            }
+        }
+
+        let info = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_info{"))
+            .expect("identity series");
+        for stale in [
+            "hotspot_temperature=\"",
+            "memory_temperature=\"",
+            "memory_controller_activity=\"",
+        ] {
+            assert!(
+                !info.contains(stale),
+                "{stale} reached the identity series: {info}"
+            );
+        }
+    }
+
+    /// A sensor string that does not start with a number publishes no
+    /// sample rather than a fabricated one, matching the "absence means no
+    /// data" convention the other per-device gauges carry.
+    #[test]
+    fn exporter_omits_the_sensor_gauges_without_a_usable_reading() {
+        for (family, key, value) in [
+            (
+                "all_smi_gpu_hotspot_temperature_celsius",
+                detail_keys::HOTSPOT_TEMPERATURE_DETAIL_KEY,
+                "n/a",
+            ),
+            (
+                "all_smi_gpu_memory_temperature_celsius",
+                detail_keys::MEMORY_TEMPERATURE_DETAIL_KEY,
+                "",
+            ),
+            (
+                "all_smi_gpu_memory_controller_activity",
+                detail_keys::MEMORY_CONTROLLER_ACTIVITY_DETAIL_KEY,
+                "1.2.3%",
+            ),
+        ] {
+            let mut gpu = make_nvidia_gpu();
+            gpu.detail.insert(key.to_string(), value.to_string());
+            let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+            assert!(
+                !output.contains(&format!("{family}{{")),
+                "{family} must be omitted without a reading:\n{output}"
+            );
+        }
+    }
+
+    /// The per-process VRAM figures reach Prometheus as their own gauges,
+    /// with byte counts parsed out of the `<n> bytes` strings and the
+    /// scoping carried in the metric name.
+    #[test]
+    fn exporter_emits_the_per_process_vram_gauges() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.name = "AMD Radeon RX 7900 XTX".to_string();
+        gpu.detail.insert(
+            detail_keys::VRAM_USAGE_PROCESS_DETAIL_KEY.to_string(),
+            "123456 bytes".to_string(),
+        );
+        gpu.detail.insert(
+            detail_keys::VRAM_BUDGET_PROCESS_DETAIL_KEY.to_string(),
+            "7000000000 bytes".to_string(),
+        );
+
+        let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+
+        for (family, expected) in [
+            ("all_smi_gpu_process_vram_used_bytes{", " 123456"),
+            ("all_smi_gpu_process_vram_budget_bytes{", " 7000000000"),
+        ] {
+            let line = output
+                .lines()
+                .find(|l| l.starts_with(family))
+                .unwrap_or_else(|| panic!("{family} missing:\n{output}"));
+            assert!(
+                line.ends_with(expected),
+                "{family} expected {expected}, got {line}"
+            );
+            for label in ["gpu=\"AMD Radeon RX 7900 XTX\"", "gpu_index=\"0\""] {
+                assert!(line.contains(label), "{label} missing from {line}");
+            }
+        }
+
+        let info = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_info{"))
+            .expect("identity series");
+        assert!(
+            !info.contains("vram_usage__this_process_=\""),
+            "the reading is still a label: {info}"
+        );
+    }
+
+    /// The Intel engine percentages and Level Zero clock domains are built
+    /// at runtime under the registry's reserved prefixes, so the test
+    /// inserts the shapes both layers actually format and asserts one row
+    /// per entry. The two engine provenances must stay distinct series
+    /// rather than flipping one series between samples.
+    #[test]
+    fn exporter_emits_engine_and_clock_domain_rows_from_the_reserved_prefixes() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.name = "Intel Arc B580".to_string();
+        gpu.detail
+            .insert("Engine: render".to_string(), "12.34%".to_string());
+        gpu.detail
+            .insert("Engine: render (L0)".to_string(), "45.67%".to_string());
+        gpu.detail
+            .insert("Engine: compute (L0)".to_string(), "8.00%".to_string());
+        gpu.detail
+            .insert("Frequency: gpu (L0)".to_string(), "2400 MHz".to_string());
+
+        let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+
+        let engines: Vec<&str> = output
+            .lines()
+            .filter(|l| l.starts_with("all_smi_gpu_engine_utilization{"))
+            .collect();
+        assert_eq!(engines.len(), 3, "one row per engine entry: {engines:?}");
+        for (engine, expected) in [
+            ("render\"", " 12.34"),
+            ("render (L0)\"", " 45.67"),
+            ("compute (L0)\"", " 8"),
+        ] {
+            let line = engines
+                .iter()
+                .find(|l| l.contains(&format!("engine=\"{engine}")))
+                .unwrap_or_else(|| panic!("engine row {engine} missing: {engines:?}"));
+            assert!(
+                line.ends_with(expected),
+                "engine {engine} expected {expected}, got {line}"
+            );
+        }
+
+        let domain = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_clock_domain_current_mhz{"))
+            .unwrap_or_else(|| panic!("clock domain gauge missing:\n{output}"));
+        assert!(
+            domain.contains("domain=\"gpu (L0)\""),
+            "the domain label must carry the rest of the key: {domain}"
+        );
+        assert!(domain.ends_with(" 2400"), "expected 2400 MHz, got {domain}");
+
+        let info = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_info{"))
+            .expect("identity series");
+        assert!(
+            !info.contains("engine__render"),
+            "a runtime-built engine key reached the identity series: {info}"
+        );
+        assert!(
+            !info.contains("frequency__gpu"),
+            "a runtime-built clock key reached the identity series: {info}"
+        );
+    }
+
+    /// The Level Zero duty cycle reaches Prometheus as its own gauge, and
+    /// the fan-speed gauge stays omitted: the parser refuses to publish a
+    /// percentage as an RPM.
+    #[test]
+    fn exporter_emits_fan_duty_cycle_for_a_duty_cycle_only_device() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.fan_speed_rpm = None;
+        gpu.detail
+            .insert("Fan Speed".to_string(), "40%".to_string());
+
+        let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+
+        let line = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_fan_duty_cycle{"))
+            .unwrap_or_else(|| panic!("duty cycle gauge missing:\n{output}"));
+        assert!(
+            line.ends_with(" 40"),
+            "expected a 40% duty cycle, got {line}"
+        );
+        assert!(line.contains("gpu=\"NVIDIA A100\""), "{line}");
+        assert!(
+            !output.contains("all_smi_gpu_fan_speed_rpm"),
+            "a duty cycle is not an RPM reading:\n{output}"
+        );
+    }
+
+    /// A card reporting a tachometer keeps exactly one sample per family:
+    /// the duty-cycle gauge yields to the RPM the other family covers.
+    #[test]
+    fn exporter_omits_fan_duty_cycle_when_a_tachometer_reading_exists() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.fan_speed_rpm = Some(1450);
+        gpu.detail
+            .insert("Fan Speed".to_string(), "1600 RPM (40%)".to_string());
+
+        let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+        assert!(
+            !output.contains("all_smi_gpu_fan_duty_cycle"),
+            "an RPM-reporting card must not publish a duty cycle:\n{output}"
+        );
+        let rpm_lines: Vec<&str> = output
+            .lines()
+            .filter(|l| l.starts_with("all_smi_gpu_fan_speed_rpm{"))
+            .collect();
+        assert_eq!(rpm_lines.len(), 1, "one RPM sample: {rpm_lines:?}");
+    }
+
+    /// The stability contract extends to the runtime-built families: the
+    /// registry's prefix rule keeps them off the identity label set however
+    /// their values move.
+    #[test]
+    fn a_runtime_built_family_keeps_one_identity_series_across_polls() {
+        let first = identity_line(
+            "Intel Arc B580",
+            &[
+                ("Engine: render (L0)", "12.34%"),
+                ("Frequency: gpu (L0)", "2400 MHz"),
+                ("Power (L0)", "42.00 W"),
+            ],
+        );
+        let second = identity_line(
+            "Intel Arc B580",
+            &[
+                ("Engine: render (L0)", "89.01%"),
+                ("Frequency: gpu (L0)", "1200 MHz"),
+                ("Power (L0)", "140.55 W"),
+            ],
+        );
+        assert_eq!(first, second, "a runtime-built poll moved the label set");
+
+        // And none of the readings reached the identity series, whether
+        // registered verbatim (Power (L0)) or through the prefix rule
+        // (the two runtime-built families).
+        for stale in [
+            "engine__render__l0_=\"",
+            "frequency__gpu__l0_=\"",
+            "power__l0_=\"",
+        ] {
+            assert!(
+                !first.contains(stale),
+                "{stale} reached the identity series: {first}"
+            );
+        }
+    }
+
+    /// The same stability contract for the keys this change newly registers,
+    /// one assertion per key so a partial revert names the key it broke.
+    #[test]
+    fn apple_furiosa_gaudi_and_tpu_readings_stay_off_the_identity_series() {
+        let polls: &[(&str, &str, &str)] = &[
+            ("combined_power_mw", "12345.6", "9876.5"),
+            ("cpu_temperature", "48.6", "51.2"),
+            ("gpu_temperature", "46.2", "49.8"),
+            ("frequency", "1500MHz", "1800MHz"),
+            ("Current Power", "142.5 W", "301.0 W"),
+            ("Used Memory", "1024 MiB", "2048 MiB"),
+            ("HLO Queue Size", "3", "7"),
+            ("HLO Exec Mean", "125.5 µs", "210.2 µs"),
+            ("HLO Exec P50", "100.0 µs", "180.4 µs"),
+            ("HLO Exec P90", "150.0 µs", "260.1 µs"),
+            ("HLO Exec P95", "175.0 µs", "300.9 µs"),
+            ("HLO Exec P99.9", "220.0 µs", "410.7 µs"),
+        ];
+
+        for (key, before, after) in polls {
+            let first = identity_line("Apple M2 Max GPU", &[(key, before)]);
+            let second = identity_line("Apple M2 Max GPU", &[(key, after)]);
+            assert_eq!(first, second, "{key} moved the identity label set");
+        }
+
+        // And together. No single device carries all of these, but a real
+        // one carries several at once (three on Apple Silicon, eight on a
+        // Google TPU), which is what used to make a scrape start a new
+        // series every few seconds. Filtering has to hold for the whole set,
+        // not just one key at a time.
+        let together = |values: [&str; 12]| {
+            let entries: Vec<(&str, &str)> = polls
+                .iter()
+                .zip(values)
+                .map(|((key, _, _), value)| (*key, value))
+                .collect();
+            identity_line("Apple M2 Max GPU", &entries)
+        };
+        assert_eq!(
+            together([
+                "12345.6",
+                "48.6",
+                "46.2",
+                "1500MHz",
+                "142.5 W",
+                "1024 MiB",
+                "3",
+                "125.5 µs",
+                "100.0 µs",
+                "150.0 µs",
+                "175.0 µs",
+                "220.0 µs",
+            ]),
+            together([
+                "9876.5",
+                "51.2",
+                "49.8",
+                "1800MHz",
+                "301.0 W",
+                "2048 MiB",
+                "7",
+                "210.2 µs",
+                "180.4 µs",
+                "260.1 µs",
+                "300.9 µs",
+                "410.7 µs",
+            ]),
+        );
+    }
+
+    /// The regression that would otherwise break Apple Silicon silently:
+    /// `all_smi_combined_power_watts` reads `combined_power_mw` straight out
+    /// of `detail`, so the filter has to drop the *label* and leave `detail`
+    /// alone.
+    #[test]
+    fn filtering_removes_labels_only_and_leaves_detail_readable() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.name = "Apple M2 Max GPU".to_string();
+        gpu.detail
+            .insert("combined_power_mw".to_string(), "12345.6".to_string());
+
+        let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+
+        let combined = output
+            .lines()
+            .find(|line| line.starts_with("all_smi_combined_power_watts{"))
+            .unwrap_or_else(|| panic!("combined power lost to the filter:\n{output}"));
+        let watts: f64 = combined
+            .rsplit(' ')
+            .next()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or_else(|| panic!("combined power sample is not a number: {combined}"));
+        assert!(
+            (watts - 12.3456).abs() < 1e-9,
+            "combined power must still be the detail reading, got {combined}"
+        );
+
+        let info = output
+            .lines()
+            .find(|line| line.starts_with("all_smi_gpu_info{"))
+            .expect("identity series");
+        assert!(
+            !info.contains("combined_power_mw=\""),
+            "the reading is still a label: {info}"
+        );
+    }
+
+    /// Issue #425: the board power reaches Prometheus as its own family, with
+    /// the same base label set as the power series it sits beside.
+    #[test]
+    fn card_power_is_published_as_its_own_gauge_not_as_a_label() {
+        let mut gpu = make_nvidia_gpu();
+        gpu.name = "RBLN-CA25".to_string();
+        gpu.device_type = "NPU".to_string();
+        gpu.detail.insert(
+            detail_keys::CARD_POWER_WATTS_DETAIL_KEY.to_string(),
+            "42.80".to_string(),
+        );
+
+        let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+
+        let line = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_card_power_watts{"))
+            .unwrap_or_else(|| panic!("card power gauge missing:\n{output}"));
+        assert!(line.ends_with(" 42.8"), "{line}");
+        assert!(line.contains("gpu=\"RBLN-CA25\""), "{line}");
+        assert!(line.contains("instance=\"node-1\""), "{line}");
+        assert!(line.contains("gpu_uuid=\"GPU-ABC\""), "{line}");
+        assert!(line.contains("gpu_index=\"0\""), "{line}");
+
+        // The HELP line has to carry the do-not-sum warning: summing this
+        // family recreates the 4x overcount issue #418 fixed.
+        let help = output
+            .lines()
+            .find(|l| l.starts_with("# HELP all_smi_gpu_card_power_watts"))
+            .expect("HELP line");
+        assert!(help.contains("sum"), "{help}");
+
+        let info = output
+            .lines()
+            .find(|l| l.starts_with("all_smi_gpu_info{"))
+            .expect("identity series");
+        assert!(!info.contains("card_power_watts=\""), "{info}");
+    }
+
+    /// No new failure path: a device without the key, or with one that does
+    /// not hold a finite non-negative number, publishes neither a label nor a
+    /// sample rather than a fabricated 0 W board.
+    #[test]
+    fn card_power_gauge_is_omitted_without_a_usable_reading() {
+        assert!(
+            !GpuMetricExporter::new(&[make_nvidia_gpu()])
+                .export_metrics()
+                .contains("all_smi_gpu_card_power_watts"),
+            "a device with no board value must publish no sample"
+        );
+
+        for rejected in ["-1", "NaN", "inf", "abc", ""] {
+            let mut gpu = make_nvidia_gpu();
+            gpu.detail.insert(
+                detail_keys::CARD_POWER_WATTS_DETAIL_KEY.to_string(),
+                rejected.to_string(),
+            );
+            let output = GpuMetricExporter::new(&[gpu]).export_metrics();
+            assert!(
+                !output.contains("all_smi_gpu_card_power_watts"),
+                "{rejected:?} must not reach the exposition:\n{output}"
+            );
+        }
     }
 
     #[test]

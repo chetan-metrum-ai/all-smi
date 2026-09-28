@@ -43,7 +43,7 @@ use std::time::{Duration, Instant};
 /// This is a runaway guard, not a sampling budget: it is sized so no shipping
 /// Mac reaches it, which keeps the reported average over the complete sensor
 /// set rather than over an arbitrary prefix of the key table. Measured counts:
-/// 23 on an M5 Max, single digits on Intel.
+/// 23 on an M5 Max, 86 on an M1 Ultra, single digits on Intel.
 const MAX_CPU_TEMP_KEYS: usize = 256;
 
 /// Upper bound on discovered GPU temperature keys (`Tg*` on Apple Silicon,
@@ -56,6 +56,28 @@ const MAX_CPU_TEMP_KEYS: usize = 256;
 /// happened to list first. Sized to leave headroom above the largest known
 /// part (an Ultra is roughly two Max dies) so truncation stays theoretical.
 const MAX_GPU_TEMP_KEYS: usize = 512;
+
+/// CPU temperature keys read before discovery is consulted. When any of them
+/// reads in [`PLAUSIBLE_TEMP_C`], their average is the CPU temperature and the
+/// discovered keys are not read at all.
+///
+/// Which of them exist differs by chip: an M1 Ultra (Mac13,2, macOS 27.0) has
+/// the six `Tp` keys and lacks `TC0P` and `TC0D`, so its CPU temperature is
+/// the average of those six although discovery finds 86 CPU sensors; an M5
+/// Max has none of the eight, so its CPU temperature comes from discovery.
+const CPU_STATIC_TEMP_KEYS: [&str; 8] = [
+    "Tp01", "Tp02", "Tp05", "Tp06", "Tp09", "Tp0A", "TC0P", "TC0D",
+];
+
+/// GPU temperature keys read before discovery is consulted, with the same
+/// precedence as [`CPU_STATIC_TEMP_KEYS`]. On an M1 Ultra and an M5 Max only
+/// `Tg0j` exists, so the GPU temperature is that one sensor (the M1 Ultra has
+/// 16 discoverable GPU sensors, the M5 Max 84).
+const GPU_STATIC_TEMP_KEYS: [&str; 4] = ["Tg0f", "Tg0j", "TG0P", "TG0D"];
+
+/// Range, in degrees Celsius, a temperature reading must fall in to be
+/// averaged. Anything outside it is a missing or differently-typed key.
+const PLAUSIBLE_TEMP_C: std::ops::RangeInclusive<f64> = 10.0..=120.0;
 
 /// Maximum number of fans to probe. No Mac ships with more than a handful.
 const MAX_FANS: u32 = 8;
@@ -799,13 +821,9 @@ impl SMC {
         let mut temps: Vec<f64> = Vec::new();
 
         // Try common CPU temperature keys first
-        let static_keys = [
-            "Tp01", "Tp02", "Tp05", "Tp06", "Tp09", "Tp0A", "TC0P", "TC0D",
-        ];
-
-        for key in static_keys {
+        for key in CPU_STATIC_TEMP_KEYS {
             if let Ok(value) = self.read_value(key)
-                && (10.0..=120.0).contains(&value)
+                && PLAUSIBLE_TEMP_C.contains(&value)
             {
                 temps.push(value);
             }
@@ -820,7 +838,7 @@ impl SMC {
 
             for key in &discovered.cpu_keys {
                 if let Ok(value) = self.read_value(key)
-                    && (10.0..=120.0).contains(&value)
+                    && PLAUSIBLE_TEMP_C.contains(&value)
                 {
                     temps.push(value);
                 }
@@ -842,11 +860,9 @@ impl SMC {
         let mut temps: Vec<f64> = Vec::new();
 
         // Try common GPU temperature keys first
-        let static_keys = ["Tg0f", "Tg0j", "TG0P", "TG0D"];
-
-        for key in static_keys {
+        for key in GPU_STATIC_TEMP_KEYS {
             if let Ok(value) = self.read_value(key)
-                && (10.0..=120.0).contains(&value)
+                && PLAUSIBLE_TEMP_C.contains(&value)
             {
                 temps.push(value);
             }
@@ -861,7 +877,7 @@ impl SMC {
 
             for key in &discovered.gpu_keys {
                 if let Ok(value) = self.read_value(key)
-                    && (10.0..=120.0).contains(&value)
+                    && PLAUSIBLE_TEMP_C.contains(&value)
                 {
                     temps.push(value);
                 }
@@ -1093,15 +1109,39 @@ impl SMCMetrics {
     }
 }
 
+/// What one [`SmcSampler::collect`] call read from the SMC.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SmcRead {
+    /// Nothing: every field repeats the previous call's reading.
+    #[default]
+    Repeated,
+    /// The temperature sensors; system power and fan speeds repeated.
+    Temperatures,
+    /// Every metric.
+    Full,
+}
+
+impl SmcRead {
+    /// Whether the temperature sensors were read.
+    pub fn temperatures_read(self) -> bool {
+        !matches!(self, SmcRead::Repeated)
+    }
+}
+
 /// SMC state the native metrics manager keeps from one collection to the
 /// next.
 ///
 /// Opening a connection per collection cost an IOKit handshake every tick,
 /// and the key-info cache on [`SMC`] only pays off on a connection that
-/// lives. Temperatures are read on every call; system power and fan speeds
-/// change slowly and cost a read for `PSTR`, one for the fan count and two per
-/// fan, so they are refreshed every
-/// [`SLOW_READ_INTERVAL`](Self::SLOW_READ_INTERVAL) and repeated in between.
+/// lives. Each metric is read on its own cadence and repeated in between:
+/// temperatures every [`TEMPERATURE_READ_INTERVAL`](Self::TEMPERATURE_READ_INTERVAL),
+/// since a die temperature moves over seconds and each read costs an IOKit
+/// round trip per sensor (24 sensors on an M5 Max); system power and fan
+/// speeds every [`SLOW_READ_INTERVAL`](Self::SLOW_READ_INTERVAL), since they
+/// change slowly and cost a read for `PSTR`, one for the fan count and two
+/// per fan. When temperatures are read, the full sensor set is read through
+/// [`SMC::get_cpu_temperature`] and [`SMC::get_gpu_temperature`], so the
+/// value produced by a read is the same as when every call read them.
 ///
 /// A failed open leaves every field empty for that call, as a failed
 /// `SMC::new` always did, and is retried on the next call. A connection whose
@@ -1112,6 +1152,12 @@ pub struct SmcSampler {
     connection: SmcConnection,
     /// The last full read and when it was taken.
     last_full: Option<(Instant, SMCMetrics)>,
+    /// When the temperatures were last read.
+    temperatures_read_at: Option<Instant>,
+    /// What the previous call returned, repeated while nothing is due.
+    last: Option<SMCMetrics>,
+    /// What the most recent call read.
+    last_read: SmcRead,
 }
 
 impl SmcSampler {
@@ -1119,32 +1165,84 @@ impl SmcSampler {
     /// again.
     pub const SLOW_READ_INTERVAL: Duration = Duration::from_secs(5);
 
+    /// How long temperatures are reused before being read again.
+    ///
+    /// Between 2 and 3 s, and away from both whole seconds so the cadence is
+    /// the same whatever the tick jitter. The 5 s full read also reads the
+    /// temperatures and restarts this interval, so at `--interval 1` the
+    /// sensors are read on ticks 0, 3, 5, 8, 10, ... (two reads per 5 s,
+    /// 40 % of ticks), at 2 s on two of every three ticks, and at 3 s and
+    /// above on every tick.
+    pub const TEMPERATURE_READ_INTERVAL: Duration = Duration::from_millis(2500);
+
+    /// Whether a collection at `now` reads the temperature sensors, given
+    /// when they were last read.
+    fn temperatures_due(read_at: Option<Instant>, now: Instant) -> bool {
+        read_at
+            .is_none_or(|at| now.saturating_duration_since(at) >= Self::TEMPERATURE_READ_INTERVAL)
+    }
+
+    /// Whether a collection at `now` reads every metric, given when that was
+    /// last done.
+    fn full_read_due(read_at: Option<Instant>, now: Instant) -> bool {
+        read_at.is_none_or(|at| now.saturating_duration_since(at) >= Self::SLOW_READ_INTERVAL)
+    }
+
     /// Read the SMC metrics for one collection.
     pub fn collect(&mut self) -> SMCMetrics {
         let Some(smc) = self.connection.get_or_retry() else {
+            self.last_read = SmcRead::Repeated;
             return SMCMetrics::default();
         };
 
-        let metrics = match &self.last_full {
-            Some((read_at, previous)) if read_at.elapsed() < Self::SLOW_READ_INTERVAL => {
-                SMCMetrics::collect_temperatures(smc, previous)
+        let now = Instant::now();
+        let previous = match &self.last_full {
+            Some((read_at, previous)) if !Self::full_read_due(Some(*read_at), now) => {
+                Some(previous)
             }
-            _ => {
+            _ => None,
+        };
+        let metrics = match previous {
+            None => {
                 let metrics = SMCMetrics::collect_from(smc);
-                self.last_full = Some((Instant::now(), metrics.clone()));
+                self.last_full = Some((now, metrics.clone()));
+                self.temperatures_read_at = Some(now);
+                self.last_read = SmcRead::Full;
                 metrics
             }
+            Some(previous) if Self::temperatures_due(self.temperatures_read_at, now) => {
+                let metrics = SMCMetrics::collect_temperatures(smc, previous);
+                self.temperatures_read_at = Some(now);
+                self.last_read = SmcRead::Temperatures;
+                metrics
+            }
+            Some(previous) => {
+                self.last_read = SmcRead::Repeated;
+                self.last.clone().unwrap_or_else(|| previous.clone())
+            }
         };
+        self.last = Some(metrics.clone());
 
         if smc.take_read_failure() {
             self.connection.reset();
-            // What the failing connection read is not worth repeating for
-            // the next 5 s; the new connection starts with a full read.
+            // What the failing connection read is not worth repeating; the
+            // new connection starts with a full read.
             self.last_full = None;
+            self.temperatures_read_at = None;
+            self.last = None;
         }
         metrics
     }
+
+    /// What the most recent [`collect`](Self::collect) call read.
+    pub fn last_read(&self) -> SmcRead {
+        self.last_read
+    }
 }
+
+#[cfg(test)]
+#[path = "smc/temperature_report.rs"]
+pub(super) mod temperature_report;
 
 #[cfg(test)]
 mod tests {
@@ -1397,6 +1495,83 @@ mod tests {
                 .collect()
         };
         assert_eq!(fans(&opened), fans(&kept));
+    }
+
+    /// The temperature interval on its own is due 2.5 s after the last read,
+    /// so between full reads (which also read temperatures and restart it)
+    /// a 1 s tick reads every third tick and a 2 s tick every second; the
+    /// full read keeps its 5 s cadence.
+    #[test]
+    fn temperature_reads_are_due_on_a_fixed_tick_pattern() {
+        let start = Instant::now();
+        let at = |secs: f64| start + Duration::from_secs_f64(secs);
+
+        assert!(SmcSampler::temperatures_due(None, start));
+        assert!(!SmcSampler::temperatures_due(Some(start), at(1.0)));
+        assert!(!SmcSampler::temperatures_due(Some(start), at(2.05)));
+        assert!(SmcSampler::temperatures_due(Some(start), at(2.95)));
+        assert!(SmcSampler::temperatures_due(Some(start), at(3.0)));
+        assert!(SmcSampler::temperatures_due(Some(start), at(4.0)));
+        assert!(!SmcSampler::temperatures_due(Some(at(1.0)), start));
+
+        assert!(SmcSampler::full_read_due(None, start));
+        assert!(!SmcSampler::full_read_due(Some(start), at(4.9)));
+        assert!(SmcSampler::full_read_due(Some(start), at(5.0)));
+    }
+
+    /// The temperature cadence stays inside the 2 to 3 s band the metric is
+    /// documented with, and away from the whole seconds that ticks land on.
+    #[test]
+    fn temperature_read_interval_sits_between_two_and_three_seconds() {
+        let interval = SmcSampler::TEMPERATURE_READ_INTERVAL;
+        assert!(interval > Duration::from_secs(2));
+        assert!(interval < Duration::from_secs(3));
+        assert!(interval < SmcSampler::SLOW_READ_INTERVAL);
+    }
+
+    #[test]
+    fn smc_read_reports_whether_temperatures_were_read() {
+        assert!(!SmcRead::Repeated.temperatures_read());
+        assert!(SmcRead::Temperatures.temperatures_read());
+        assert!(SmcRead::Full.temperatures_read());
+        assert_eq!(SmcRead::default(), SmcRead::Repeated);
+    }
+
+    /// Over a kept connection, a sampler reads everything on its first call,
+    /// repeats on the next, and the repeated call returns the same values
+    /// it read. Skips where the SMC cannot be opened (a VM or CI runner).
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn sampler_repeats_temperatures_between_reads() {
+        let mut sampler = SmcSampler::default();
+        let first = sampler.collect();
+        if sampler.connection.get().is_none() {
+            return;
+        }
+        assert_eq!(sampler.last_read(), SmcRead::Full);
+
+        let second = sampler.collect();
+        assert_eq!(sampler.last_read(), SmcRead::Repeated);
+        assert_eq!(second.cpu_temperature, first.cpu_temperature);
+        assert_eq!(second.gpu_temperature, first.gpu_temperature);
+        assert_eq!(second.system_power, first.system_power);
+        assert_eq!(second.fan_speeds, first.fan_speeds);
+
+        // Once the temperature interval has passed, only the temperatures
+        // are read; power and fans are still carried over.
+        let Some(long_ago) = Instant::now().checked_sub(SmcSampler::TEMPERATURE_READ_INTERVAL)
+        else {
+            return;
+        };
+        sampler.temperatures_read_at = Some(long_ago);
+        let third = sampler.collect();
+        assert_eq!(sampler.last_read(), SmcRead::Temperatures);
+        assert_eq!(third.system_power, first.system_power);
+        assert_eq!(third.fan_speeds, first.fan_speeds);
+        assert_eq!(
+            third.cpu_temperature.is_some(),
+            first.cpu_temperature.is_some()
+        );
     }
 
     /// The native metrics manager must retry a failed open on its next

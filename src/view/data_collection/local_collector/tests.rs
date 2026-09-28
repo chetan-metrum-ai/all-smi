@@ -40,6 +40,27 @@ async fn initialized_collector() -> LocalCollector {
     collector
 }
 
+/// A full-refresh process pass through the same function the collector
+/// runs on the blocking pool, so a test that replicates a tick measures and
+/// compares the real path (on macOS and Linux, the native sampler; issues
+/// #427 and #428).
+fn full_process_pass(collector: &LocalCollector, gpu_pids: &HashSet<u32>) -> Vec<ProcessInfo> {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        process_pass(
+            &collector.process_cache,
+            &collector.process_sampler,
+            &[],
+            true,
+            gpu_pids,
+        )
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        process_pass(&collector.process_cache, &[], true, gpu_pids)
+    }
+}
+
 fn summarize(label: &str, samples: &[Duration]) -> Duration {
     let mut sorted = samples.to_vec();
     sorted.sort();
@@ -165,20 +186,8 @@ async fn measure_collection_arms() {
             storage.push(t.elapsed());
         }
         {
-            let cache = Arc::clone(&collector.process_cache);
             let t = std::time::Instant::now();
-            let _ = with_global_system(|system| {
-                use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
-                let refresh_kind = ProcessRefreshKind::nothing()
-                    .with_cpu()
-                    .with_memory()
-                    .with_user(UpdateKind::OnlyIfNotSet);
-                system.refresh_processes_specifics(ProcessesToUpdate::All, true, refresh_kind);
-                system.refresh_memory();
-                let gpu_pids: HashSet<u32> = HashSet::new();
-                let mut cache = cache.write().unwrap();
-                update_process_cache(system, &gpu_pids, &mut cache)
-            });
+            let _ = full_process_pass(&collector, &HashSet::new());
             processes.push(t.elapsed());
         }
 
@@ -271,18 +280,7 @@ async fn collect_reference(collector: &LocalCollector) -> CollectionData {
         .flat_map(|reader| reader.get_memory_info())
         .collect();
 
-    let process_cache = Arc::clone(&collector.process_cache);
-    let all_processes = with_global_system(|system| {
-        use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
-        let refresh_kind = ProcessRefreshKind::nothing()
-            .with_cpu()
-            .with_memory()
-            .with_user(UpdateKind::OnlyIfNotSet);
-        system.refresh_processes_specifics(ProcessesToUpdate::All, true, refresh_kind);
-        system.refresh_memory();
-        let mut cache = process_cache.write().unwrap();
-        update_process_cache(system, &gpu_pids, &mut cache)
-    });
+    let all_processes = full_process_pass(collector, &gpu_pids);
     let mut all_processes = merge_gpu_processes(all_processes, gpu_processes);
     all_processes.sort_by(|a, b| {
         b.cpu_percent
@@ -434,6 +432,69 @@ async fn join_or_log_default_falls_back_on_panicking_task() {
     );
 }
 
+fn gpu_with_power(uuid: &str, power_consumption: f64) -> GpuInfo {
+    GpuInfo {
+        uuid: uuid.to_string(),
+        time: String::new(),
+        name: "RBLN-CA25".to_string(),
+        device_type: "NPU".to_string(),
+        host_id: "h".to_string(),
+        hostname: "h".to_string(),
+        instance: "h".to_string(),
+        utilization: 0.0,
+        ane_utilization: 0.0,
+        dla_utilization: None,
+        tensorcore_utilization: None,
+        temperature: 40,
+        used_memory: 0,
+        total_memory: 0,
+        frequency: 0,
+        power_consumption,
+        gpu_core_count: None,
+        temperature_threshold_slowdown: None,
+        temperature_threshold_shutdown: None,
+        temperature_threshold_max_operating: None,
+        temperature_threshold_acoustic: None,
+        performance_state: None,
+        fan_speed_rpm: None,
+        numa_node_id: None,
+        gsp_firmware_mode: None,
+        gsp_firmware_version: None,
+        nvlink_remote_devices: Vec::new(),
+        gpm_metrics: None,
+        detail: HashMap::new(),
+    }
+}
+
+/// Issue #418: local-view chassis power is the sum of the GPU power
+/// readings that exist. On an ATOM Max card three of four dies carry no
+/// reading (`-1.0`), and the raw sum used to subtract a watt for each.
+#[test]
+fn inject_gpu_power_skips_unavailable_rows() {
+    use crate::device::types::GPU_METRIC_UNAVAILABLE;
+
+    let gpus = vec![
+        gpu_with_power("die-0", 300.0),
+        gpu_with_power("die-1", GPU_METRIC_UNAVAILABLE),
+        gpu_with_power("die-2", GPU_METRIC_UNAVAILABLE),
+    ];
+    let chassis = inject_gpu_power(vec![ChassisInfo::default()], &gpus);
+    assert_eq!(chassis[0].total_power_watts, Some(300.0));
+
+    // Nothing reported: stay unset instead of injecting a negative total.
+    let silent = vec![gpu_with_power("die-1", GPU_METRIC_UNAVAILABLE)];
+    let chassis = inject_gpu_power(vec![ChassisInfo::default()], &silent);
+    assert_eq!(chassis[0].total_power_watts, None);
+
+    // A chassis that already measured its own power keeps it.
+    let measured = ChassisInfo {
+        total_power_watts: Some(1200.0),
+        ..ChassisInfo::default()
+    };
+    let chassis = inject_gpu_power(vec![measured], &gpus);
+    assert_eq!(chassis[0].total_power_watts, Some(1200.0));
+}
+
 /// Finding: a panic while holding `process_cache`'s write lock (mirroring a
 /// panicking reader mid-cycle) used to poison the lock permanently, so every
 /// later cycle panicked in turn on `.write().unwrap()` and produced silent,
@@ -506,8 +567,8 @@ async fn first_iteration_collection_reports_startup_status() {
     assert_eq!(
         state.startup_status_lines,
         vec![
-            "✓ Initializing GPU readers...",
             "✓ Initializing CPU readers...",
+            "✓ Initializing GPU readers...",
             "✓ Initializing memory readers...",
             "✓ GPU information collected",
             "✓ CPU information collected",
@@ -517,5 +578,76 @@ async fn first_iteration_collection_reports_startup_status() {
         ],
         "startup status lines landed in the wrong slots: {:?}",
         state.startup_status_lines
+    );
+}
+
+/// Issue #427, defect 2, through the real steady-state path: a busy process
+/// kept out of the tracked set for four selective ticks must not read about
+/// five times its share on the full tick that follows. The collector
+/// recomputes the tracked set every tick from the top-N rows, where a
+/// process burning a core always lands, so the test overrides it after every
+/// tick to keep the child out.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn full_tick_does_not_inflate_untracked_processes() {
+    let _serialize = TEST_LOCK.lock().await;
+    let Ok(mut busy) = crate::utils::command::new_command("/usr/bin/yes")
+        .stdout(std::process::Stdio::null())
+        .spawn()
+    else {
+        return;
+    };
+    let pid = busy.id();
+    let collector = initialized_collector().await;
+    let reading = |data: &CollectionData| {
+        data.process_info
+            .iter()
+            .find(|p| p.pid == pid)
+            .map(|p| p.cpu_percent)
+    };
+
+    // Cycle 0 is the full tick that discovers the child; cycles 1 to 4 are
+    // selective and must not track it; cycle 5 is the full tick under test.
+    collector.refresh_cycle.store(0, Ordering::Relaxed);
+    let _ = collector.collect_steady_state().await;
+    let mut five_tick = None;
+    let mut one_tick = None;
+    for cycle in 1..=6 {
+        let without_child: Vec<sysinfo::Pid> = collector
+            .tracked_pids
+            .read()
+            .await
+            .iter()
+            .copied()
+            .filter(|tracked| tracked.as_u32() != pid)
+            .collect();
+        *collector.tracked_pids.write().await = without_child;
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        let data = collector.collect_steady_state().await;
+        match cycle {
+            5 => five_tick = reading(&data),
+            6 => one_tick = reading(&data),
+            _ => {}
+        }
+    }
+    let _ = busy.kill();
+    let _ = busy.wait();
+
+    let (five_tick, one_tick) = (
+        five_tick.expect("row on tick 5"),
+        one_tick.expect("row on tick 6"),
+    );
+    println!(
+        "yes through collect_steady_state: five-tick {five_tick:.2} %, one-tick {one_tick:.2} %"
+    );
+    assert!(
+        one_tick > 10.0,
+        "yes should be visibly busy, read {one_tick}"
+    );
+    // One core is the ceiling for a single-threaded `yes`; the defect reads
+    // about five. The ratio guards against a starved reference second.
+    assert!(
+        five_tick < 200.0 && five_tick < 3.0 * one_tick,
+        "full-tick reading {five_tick} is inflated against a one-second reading of {one_tick}"
     );
 }

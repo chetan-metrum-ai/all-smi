@@ -22,7 +22,16 @@
 //! a colder core, so the order changes what each one appears to cost. Prints markdown tables:
 //! the first tick, the steady state (first tick excluded), the
 //! `collect_once` breakdown on Apple Silicon, and the process CPU the
-//! collection alone used while ticking.
+//! collection alone used while ticking. Since issue #414 the breakdown also
+//! averages `IOReportCreateSamples` and the SMC over the ticks that actually
+//! sampled or read, next to the per-tick rows that count reused ticks as
+//! zero, and the first-tick table shows the CPU warm-up and the manager's
+//! first window overlapping reader construction instead of running after it.
+//! Since issue #427 the process pass on macOS and, since issue #428, on
+//! Linux goes through `refresh_processes`, as the collector's does: the
+//! "process refresh" rows are the native sampler on selective ticks and
+//! sysinfo plus the sampler on full ticks, and two "process sampler" rows
+//! show the sampler's own share.
 //!
 //! ```text
 //! cargo test --release --test perf_tick_stages -- --ignored --nocapture
@@ -32,13 +41,18 @@
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use all_smi::device::process_list::{ProcessSampler, merge_gpu_processes, refresh_processes};
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 use all_smi::device::process_list::{merge_gpu_processes, update_process_cache};
 use all_smi::device::{
     ProcessInfo, create_chassis_reader, get_cpu_readers, get_gpu_readers, get_memory_readers,
 };
 use all_smi::storage::DiskCache;
 use all_smi::utils::{get_hostname, with_global_system};
-use sysinfo::{DiskRefreshKind, Disks, ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
+use sysinfo::{DiskRefreshKind, Disks};
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
 
 /// `LocalCollector`'s constants, repeated so the replay matches it.
 const FULL_REFRESH_INTERVAL: usize = 5;
@@ -110,6 +124,10 @@ struct Stages {
     chassis: Stage,
     refresh_full: Stage,
     refresh_selective: Stage,
+    /// The native process sampler's share of the refresh rows (issues #427
+    /// and #428; zero on Windows).
+    sampler_full: Stage,
+    sampler_selective: Stage,
     cache_full: Stage,
     cache_selective: Stage,
     merge: Stage,
@@ -119,6 +137,11 @@ struct Stages {
     smc: Stage,
     native_other: Stage,
     native_total: Stage,
+    /// `IOReportCreateSamples` on the ticks that took a sample (issue #414:
+    /// the per-tick row above averages the reused ticks in as zero).
+    ioreport_sample_taken: Stage,
+    /// SMC on the ticks that read the temperature sensors.
+    smc_read: Stage,
 }
 
 #[test]
@@ -130,16 +153,21 @@ fn perf_tick_stages() {
         .unwrap_or(11);
 
     let setup = Instant::now();
-    let gpu_readers = get_gpu_readers();
+    // CPU readers first, as the collectors build them (issue #414).
     let cpu_readers = get_cpu_readers();
+    let gpu_readers = get_gpu_readers();
     let memory_readers = get_memory_readers();
     let chassis_reader = create_chassis_reader();
-    println!("reader construction: {}", ms(setup.elapsed()));
+    let t_construction = setup.elapsed();
+    println!("reader construction: {}", ms(t_construction));
 
     let hostname = get_hostname();
     let mut disks = DiskCache::new();
     let mut cache: HashMap<u32, ProcessInfo> = HashMap::new();
     let mut tracked: Vec<sysinfo::Pid> = Vec::new();
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    let mut sampler = ProcessSampler::new();
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     let refresh_kind = ProcessRefreshKind::nothing()
         .with_cpu()
         .with_memory()
@@ -192,7 +220,21 @@ fn perf_tick_stages() {
         let t_storage = started.elapsed();
 
         let full = tick % FULL_REFRESH_INTERVAL == 0 || tracked.is_empty();
-        let (t_refresh, t_cache, processes) = with_global_system(|system| {
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        let (t_refresh, t_sampler, t_cache, processes) = with_global_system(|system| {
+            let (processes, timings) =
+                refresh_processes(system, &mut sampler, &tracked, full, &gpu_pids, &mut cache);
+            // The refresh row is everything before the cache update, as it
+            // was: sysinfo (full ticks only) plus the sampler.
+            (
+                timings.sysinfo + timings.sampler,
+                timings.sampler,
+                timings.cache,
+                processes,
+            )
+        });
+        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        let (t_refresh, t_sampler, t_cache, processes) = with_global_system(|system| {
             let started = Instant::now();
             if full {
                 system.refresh_processes_specifics(ProcessesToUpdate::All, true, refresh_kind);
@@ -207,7 +249,7 @@ fn perf_tick_stages() {
             let t_refresh = started.elapsed();
             let started = Instant::now();
             let processes = update_process_cache(system, &gpu_pids, &mut cache);
-            (t_refresh, started.elapsed(), processes)
+            (t_refresh, Duration::ZERO, started.elapsed(), processes)
         });
 
         let started = Instant::now();
@@ -239,6 +281,12 @@ fn perf_tick_stages() {
                 ("process refresh (full)", t_refresh),
                 ("update_process_cache", t_cache),
                 ("whole tick", t_tick),
+                // Since #414 the warm-up waits overlap reader construction,
+                // so the two only add up to time to first data together.
+                (
+                    "reader construction + whole tick (time to first data)",
+                    t_construction + t_tick,
+                ),
             ];
             continue;
         }
@@ -253,9 +301,11 @@ fn perf_tick_stages() {
         stages.chassis.push(t_chassis);
         if full {
             stages.refresh_full.push(t_refresh);
+            stages.sampler_full.push(t_sampler);
             stages.cache_full.push(t_cache);
         } else {
             stages.refresh_selective.push(t_refresh);
+            stages.sampler_selective.push(t_sampler);
             stages.cache_selective.push(t_cache);
         }
         stages.merge.push(t_merge);
@@ -278,6 +328,12 @@ fn perf_tick_stages() {
     stages.storage.row("storage (DiskCache::storage_info)");
     stages.refresh_full.row("process refresh (full, every 5th)");
     stages.refresh_selective.row("process refresh (selective)");
+    if cfg!(any(target_os = "macos", target_os = "linux")) {
+        stages.sampler_full.row("process sampler (full ticks)");
+        stages
+            .sampler_selective
+            .row("process sampler (selective ticks)");
+    }
     stages.cache_full.row("update_process_cache (full ticks)");
     stages
         .cache_selective
@@ -293,6 +349,17 @@ fn perf_tick_stages() {
         stages.smc.row("SMC");
         stages.native_other.row("thermal + assembly");
         stages.native_total.row("collect_once total");
+        stages
+            .ioreport_sample_taken
+            .row("IOReportCreateSamples (sampled ticks only)");
+        stages.smc_read.row("SMC (temperature read ticks only)");
+        println!(
+            "\nIOReport sampled on {} of {} ticks; SMC temperatures read on {} of {} ticks",
+            stages.ioreport_sample_taken.0.len(),
+            stages.native_total.0.len(),
+            stages.smc_read.0.len(),
+            stages.native_total.0.len()
+        );
     }
 
     if !steady_wall.is_zero() {
@@ -320,6 +387,16 @@ fn record_native_timings(stages: &mut Stages) {
     stages.smc.push(timings.smc);
     stages.native_other.push(timings.other);
     stages.native_total.push(timings.total);
+    // `ioreport_sampled` means a new window was produced. A failed or
+    // too-short sample still pays for `IOReportCreateSamples` and reports
+    // that in `ioreport_sample` (so it counts in the per-tick row above)
+    // but is not a sampled tick here.
+    if timings.ioreport_sampled {
+        stages.ioreport_sample_taken.push(timings.ioreport_sample);
+    }
+    if timings.smc_temperatures_read {
+        stages.smc_read.push(timings.smc);
+    }
 }
 
 #[cfg(not(target_os = "macos"))]

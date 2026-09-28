@@ -547,6 +547,18 @@ impl MetricsParser {
                     .detail
                     .insert("power_limit_max".to_string(), value.to_string());
             }
+            // Board power on every device of a multi-device board (the dies
+            // of an ATOM Max card). Only one device of the board carries a
+            // power series, so the viewer needs this to show the others'
+            // board value; `gpu_renderer` and the local reader both read it
+            // from `detail` under this key, at the two decimals the reader
+            // writes, so the round trip is byte-stable.
+            "gpu_card_power_watts" => {
+                gpu_info.detail.insert(
+                    crate::device::readers::detail_keys::CARD_POWER_WATTS_DETAIL_KEY.to_string(),
+                    format!("{value:.2}"),
+                );
+            }
             "gpu_info" => {
                 // Extract device type
                 if let Some(device_type) = labels.get("type") {
@@ -570,6 +582,11 @@ impl MetricsParser {
                         // Carried on the identity series so a remote viewer
                         // sees the reason and not just the absence (#325).
                         "native_metrics"
+                        // Nothing that moves between polls belongs here.
+                        // `all_smi_gpu_info` carries device identity only,
+                        // so a live reading such as the board power arrives
+                        // as its own metric (`gpu_card_power_watts` above)
+                        // rather than as a label.
                     ]
                 );
 
@@ -1958,6 +1975,114 @@ all_smi_gpu_power_consumption_watts{gpu="Apple M2 Max GPU", instance="mac-1", gp
         assert_eq!(gpu.power_consumption_reading(), Some(0.0));
     }
 
+    /// Issue #436: a value the regex accepts but `f64::parse` rejects (`1.2.3`
+    /// matches the digits-and-dots value group) must drop the line at ingest,
+    /// not fabricate a `0.0` reading. Zero is a real reading in this domain,
+    /// so the paired genuine `0` has to land as a reading to prove the
+    /// distinction is kept rather than everything being rejected.
+    #[test]
+    fn test_unparseable_value_drops_the_line_but_a_genuine_zero_lands() {
+        let parser = create_test_parser();
+        let re = create_test_regex();
+        let host = "127.0.0.1:10058";
+
+        let test_data = r#"
+all_smi_gpu_utilization{gpu="Buggy node", instance="node-x", gpu_uuid="GPU-BAD", index="0"} 1.2.3
+all_smi_gpu_utilization{gpu="Idle node", instance="node-x", gpu_uuid="GPU-ZERO", index="0"} 0
+"#;
+
+        let parsed = parser.parse_metrics(test_data, host, &re);
+
+        // Only the genuine zero becomes a device row; the unparseable line
+        // leaves nothing behind.
+        assert_eq!(parsed.gpu_info.len(), 1);
+        let gpu = &parsed.gpu_info[0];
+        assert_eq!(gpu.uuid, "GPU-ZERO");
+        assert_eq!(gpu.utilization_reading(), Some(0.0));
+    }
+
+    /// Issue #418: a non-reporting ATOM Max die has no power series of its
+    /// own but does carry its board's power. Issue #425 moved that value off
+    /// the `all_smi_gpu_info` label set and onto its own gauge, because a
+    /// live reading in the label set gave the die a new series per scrape.
+    /// The viewer keeps the power absent and the board value in `detail` for
+    /// display, exactly as before.
+    #[test]
+    fn test_card_power_gauge_survives_without_a_power_series() {
+        let parser = create_test_parser();
+        let re = create_test_regex();
+        let host = "127.0.0.1:10058";
+
+        let test_data = r#"
+all_smi_gpu_memory_total_bytes{gpu="RBLN-CA25", instance="atom-max-01", gpu_uuid="die-1", gpu_index="1"} 16877879296
+all_smi_gpu_card_power_watts{gpu="RBLN-CA25", instance="atom-max-01", gpu_uuid="die-1", gpu_index="1"} 42.8
+all_smi_gpu_info{gpu="RBLN-CA25", instance="atom-max-01", gpu_uuid="die-1", gpu_index="1", type="NPU"} 1
+"#;
+
+        let parsed = parser.parse_metrics(test_data, host, &re);
+        assert_eq!(parsed.gpu_info.len(), 1);
+        let gpu = &parsed.gpu_info[0];
+        assert_eq!(gpu.power_consumption_reading(), None);
+        assert_eq!(
+            gpu.detail
+                .get(crate::device::readers::detail_keys::CARD_POWER_WATTS_DETAIL_KEY)
+                .map(String::as_str),
+            Some("42.80")
+        );
+    }
+
+    /// Issue #436, guarding the #435 gauge path: an
+    /// `all_smi_gpu_card_power_watts` line whose value matches the regex but
+    /// fails `f64::parse` must leave the board power absent in `detail`, not
+    /// write a fabricated `0.00` that `gpu_renderer` would show as a
+    /// confident `(0W)`.
+    #[test]
+    fn test_card_power_gauge_with_unparseable_value_stays_absent() {
+        let parser = create_test_parser();
+        let re = create_test_regex();
+        let host = "127.0.0.1:10058";
+
+        let test_data = r#"
+all_smi_gpu_memory_total_bytes{gpu="RBLN-CA25", instance="atom-max-01", gpu_uuid="die-1", gpu_index="1"} 16877879296
+all_smi_gpu_card_power_watts{gpu="RBLN-CA25", instance="atom-max-01", gpu_uuid="die-1", gpu_index="1"} 1.2.3
+all_smi_gpu_info{gpu="RBLN-CA25", instance="atom-max-01", gpu_uuid="die-1", gpu_index="1", type="NPU"} 1
+"#;
+
+        let parsed = parser.parse_metrics(test_data, host, &re);
+        assert_eq!(parsed.gpu_info.len(), 1);
+        let gpu = &parsed.gpu_info[0];
+        assert_eq!(gpu.power_consumption_reading(), None);
+        assert_eq!(
+            gpu.detail
+                .get(crate::device::readers::detail_keys::CARD_POWER_WATTS_DETAIL_KEY),
+            None
+        );
+    }
+
+    /// The label path is gone: a node that somehow still puts the board power
+    /// in the `all_smi_gpu_info` label set must not have it ingested, or the
+    /// value would come back as a churning label on the viewer's side too.
+    /// No released build emits that label, so nothing is lost by dropping it.
+    #[test]
+    fn test_card_power_label_is_no_longer_ingested() {
+        let parser = create_test_parser();
+        let re = create_test_regex();
+        let host = "127.0.0.1:10058";
+
+        let test_data = r#"
+all_smi_gpu_info{gpu="RBLN-CA25", instance="atom-max-01", gpu_uuid="die-1", gpu_index="1", type="NPU", card_power_watts="42.80"} 1
+"#;
+
+        let parsed = parser.parse_metrics(test_data, host, &re);
+        assert_eq!(parsed.gpu_info.len(), 1);
+        assert_eq!(
+            parsed.gpu_info[0]
+                .detail
+                .get(crate::device::readers::detail_keys::CARD_POWER_WATTS_DETAIL_KEY),
+            None
+        );
+    }
+
     #[test]
     fn test_parse_gpu_thermal_thresholds_and_pstate() {
         let parser = create_test_parser();
@@ -2053,7 +2178,7 @@ all_smi_gpu_performance_state{gpu="NVIDIA A100", instance="node-1", uuid="GPU-T"
         // the detail key by sanitizing it. The two spellings must not
         // diverge: if `FAN_SPEED_DETAIL_KEY` is ever renamed, this fails
         // here instead of silently dropping every legacy node's reading.
-        use crate::api::metrics::gpu::FAN_SPEED_DETAIL_KEY;
+        use crate::device::readers::detail_keys::FAN_SPEED_DETAIL_KEY;
         use crate::parsing::common::sanitize_label_name;
 
         assert_eq!(
