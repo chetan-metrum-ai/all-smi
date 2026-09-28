@@ -27,9 +27,9 @@ The application presents a terminal-based user interface with cluster overview, 
 
 ### Install (Metrum fork)
 
-Deep-telemetry builds of this fork are published on the Metrum GitHub Releases
-page after the DCGM plugin lands (P4). Prefer the glibc x86_64 tarball on GPU
-servers:
+Deep-telemetry builds of this fork (GPM, NVML extras, DCGM plugin) are published
+as prebuilt archives on the [Metrum GitHub Releases](https://github.com/chetan-metrum-ai/all-smi/releases)
+page. Prefer the glibc x86_64 tarball on GPU servers:
 
 1. Open https://github.com/chetan-metrum-ai/all-smi/releases
 2. Download `all-smi-linux-x86_64.tar.gz` (and its `.sha256`)
@@ -37,8 +37,17 @@ servers:
 
 Tags use a `v*-metrum.N` suffix so they never collide with upstream
 `lablup/all-smi` releases. macOS aarch64 zips are unsigned. musl archives omit
-the AMD (and later DCGM) runtime plugins. Until the first Metrum tag, build
-from source on a GPU box with `cargo build --release`.
+the AMD and DCGM runtime plugins.
+
+This fork is **not** published to [crates.io](https://crates.io/crates/all-smi).
+`cargo install all-smi` installs the **upstream** crate and does not include
+Metrum deep-telemetry extras. To build the fork from source on a GPU box:
+
+```bash
+git clone https://github.com/chetan-metrum-ai/all-smi.git
+cd all-smi
+cargo build --release
+```
 
 ### Option 1: Install via Homebrew (macOS/Linux)
 
@@ -90,9 +99,12 @@ Download the latest release from the [GitHub releases page](https://github.com/l
 
 > Release binaries are signed: macOS archives are notarized (so Gatekeeper does not block them as coming from an unidentified developer) and Windows binaries are Authenticode code-signed.
 
-### Option 5: Install from Cargo
+### Option 5: Install from crates.io (Cargo)
 
-Install all-smi through Cargo:
+The upstream `all-smi` binary is published on the Cargo ecosystem at
+[crates.io/crates/all-smi](https://crates.io/crates/all-smi). `cargo install`
+downloads that crate and compiles the binary locally (it is not a prebuilt
+archive download):
 
 ```bash
 cargo install all-smi
