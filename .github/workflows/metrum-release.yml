@@ -78,12 +78,13 @@ jobs:
       PROTOC_VERSION: "31.1"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        # Pinned: fork org requires full-length commit SHAs (not floating tags).
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.release_tag || github.sha }}
 
       - name: Checkout workflow actions
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ github.sha }}
           sparse-checkout: .github/actions
@@ -91,7 +92,7 @@ jobs:
           path: .workflow-actions
 
       - name: Cache cargo
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
             ~/.cargo/registry
@@ -102,7 +103,7 @@ jobs:
             metrum-${{ runner.os }}-cargo-${{ matrix.target }}-
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
 
       - name: Add target architecture
         run: rustup target add ${{ matrix.target }}
@@ -195,7 +196,7 @@ jobs:
 
       - name: Upload release artifacts
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
           files: |
