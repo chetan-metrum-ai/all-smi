@@ -1589,6 +1589,7 @@ See the [LICENSE](./LICENSE) file for details.
 ## Changelog
 
 ### Recent Updates
+- **v0.27.0 (2026/10/02):** Added AWS Neuron (Trainium and Inferentia) monitoring, cut per-tick collection cost on macOS and Linux, fixed Apple Silicon and Rebellions power over-counts, and stopped all_smi_gpu_info label churn
 - **v0.26.3 (2026/09/01):** Fixed local TUI wrapping and duplicated metrics in narrow terminals, accepted comma-separated `--hosts` lists with startup validation, corrected user-facing CLI and doc text, and updated Rust dependencies including nvml-wrapper 0.13
 - **v0.26.2 (2026/08/25):** Moved Linux AMD monitoring into a runtime-loaded companion, fixed unavailable Windows GPU metrics and Level Zero memory provenance, and made native Windows tests and lint checks pass.
 - **v0.26.1 (2026/08/24):** Fixed macOS release signing and recovery, added early validation for Homebrew credentials and native Windows checks, and refreshed Rust dependencies
