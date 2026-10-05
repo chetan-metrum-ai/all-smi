@@ -30,7 +30,6 @@ The application presents a terminal-based user interface with cluster overview, 
 The easiest way to install all-smi on macOS and Linux is through Homebrew:
 
 ```bash
-brew tap lablup/tap
 brew install all-smi
 ```
 
