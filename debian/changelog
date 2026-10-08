@@ -1,3 +1,23 @@
+all-smi (0.27.0-0) jammy; urgency=medium
+
+  * Add AWS Neuron support on Linux for Trainium and Inferentia devices: inventory, per-NeuronCore memory and utilization, Prometheus metrics, doctor checks, and mock data (#417)
+  * Fix Apple Silicon power readings that alternated between 0 W and inflated values by matching IOReport energy channels exactly and timing each channel by the driver's own publication timestamp (#412)
+  * Cut per-tick collection cost on macOS: the mount table is enumerated in the background, no process is spawned after startup, IOReport is sampled every 2 s, and SMC temperatures are read twice per 5 s (#413, #426)
+  * Sample macOS process metrics through proc_pidinfo and Linux process metrics from /proc/<pid>/stat, which removes the fivefold CPU percent inflation of processes outside the tracked top 500 (#432, #443)
+  * Fix Rebellions telemetry against live RBLN-CA22 output: device memory in bytes, SI-prefixed power, PCI detection by vendor 1eff, and workload contexts that no longer hide devices (#416)
+  * Count each Rebellions ATOM Max card's power once per card instead of once per die, which had reported four times the real draw (#423)
+  * Keep changing readings out of all_smi_gpu_info labels so a device no longer starts a new Prometheus series on nearly every scrape, and publish each removed reading as its own gauge (#435, #441, #442)
+  * Emit the all_smi_tenstorrent_* vendor gauges, including the throttler, ARC health, and fault registers, which were documented but never fired (#435, #439)
+  * Emit all_smi_gpu_pcie_gen_current and all_smi_gpu_pcie_width_current for NVIDIA and Linux AMD GPUs, and add all_smi_gpu_clock_memory_current_mhz, all_smi_gpu_memory_free_bytes, all_smi_gpu_fan_duty_cycle, and all_smi_gpu_card_power_watts (#435, #441, #442)
+  * Drop remote Prometheus lines whose value does not parse instead of recording a fabricated 0.0 reading (#438)
+  * Remove the generic all_smi_npu_* metric declarations and three Tenstorrent series that no reader ever fed (#439, #440)
+  * Rename Tenstorrent and AMD snapshot detail fields to snake_case keys; API.md carries the mapping (#435, #439, #441)
+  * Report AMD GPU power in watts: stop dividing the hwmon reading by 1000 a second time, which showed an Instinct MI300X drawing 148 W as 0.148, and scale the gpu_metrics socket power by table format (#447)
+  * Stop a default cargo install from installing the debug-pid-mapping tool beside all-smi (#448)
+  * Update dirs to 7 and zstd to 0.14 (#409)
+
+ -- Jeongkyu Shin <inureyes@gmail.com>  Fri, 02 Oct 2026 00:00:00 +0000
+
 all-smi (0.26.3-0) jammy; urgency=medium
 
   * Stop narrow terminals from wrapping ANSI-styled metric rows in local mode by clamping every rendered line to the visible width
