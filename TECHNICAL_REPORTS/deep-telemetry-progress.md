@@ -261,3 +261,5 @@ RTX PRO 6000 was not offered, so the box is a Lambda Labs H100 PCIe (`209.20.159
 - `cargo test -p all-smi-amd-plugin --release`: 12 passed, including the watts scaling tests
 - Default API scrape after `all_smi_up 1`: `source="gpm"` on the profile ratios; power read 51.364 W idle
 - `ALL_SMI_NVIDIA_DISABLE_GPM=1` plus the DCGM plugin: `source="dcgm"` on the same ratios
+
+Published `v0.27.0-metrum.1` `all-smi-linux-x86_64.tar.gz` (sha256 OK) on the same box: `all-smi 0.27.0`, archive contains `liball_smi_amd.so` and `liball_smi_dcgm.so`, doctor GPM/DCGM 4 pass. Instance deleted after that check.
