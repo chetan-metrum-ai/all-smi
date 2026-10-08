@@ -2,6 +2,20 @@
 
 [Home](../README.md) · [Documentation](../README.md#documentation)
 
+## Metrum fork builds
+
+This repository is the Metrum fork. Downloadable deep-telemetry binaries (NVIDIA GPM, NVML extras, and the DCGM plugin) are on the [Metrum GitHub Releases](https://github.com/chetan-metrum-ai/all-smi/releases) page, tagged `vX.Y.Z-metrum.N`.
+
+1. Open https://github.com/chetan-metrum-ai/all-smi/releases
+2. Download `all-smi-linux-x86_64.tar.gz` and its `.sha256` for a GPU server
+3. Extract the archive and run `./all-smi doctor`
+
+Keep `liball_smi_amd.so` and `liball_smi_dcgm.so` beside the binary on glibc Linux. musl archives omit both plugins. macOS aarch64 zips are unsigned.
+
+`cargo install all-smi` installs the upstream crate from crates.io. It does not include the Metrum extras. Build this fork from source with `cargo build --release` after cloning https://github.com/chetan-metrum-ai/all-smi.git.
+
+The Homebrew, PPA, Debian, and GitHub release options below are the upstream [lablup/all-smi](https://github.com/lablup/all-smi) project.
+
 ## Option 1: Install via Homebrew (macOS/Linux)
 
 The easiest way to install all-smi on macOS and Linux is through Homebrew:
@@ -53,7 +67,7 @@ Download the latest release from the [GitHub releases page](https://github.com/l
 
 ## Option 5: Install from Cargo
 
-Install all-smi through Cargo:
+The upstream `all-smi` binary is published on [crates.io/crates/all-smi](https://crates.io/crates/all-smi). `cargo install` downloads that crate and compiles it locally. That binary is not a Metrum fork build:
 
 ```bash
 cargo install all-smi
@@ -71,7 +85,7 @@ sudo dnf install pkg-config openssl-devel protobuf-compiler protobuf-devel
 
 After installation, the binary will be available in your `$PATH` as `all-smi`.
 
-`cargo install` installs Cargo binary targets only, so it does not install the Linux AMD companion library. The resulting binary still starts on every host and `all-smi doctor --only amd` reports the plugin as unavailable; use the release archive, Homebrew, PPA/Debian package, or the source-build instructions below when Linux AMD monitoring is required.
+`cargo install` installs Cargo binary targets only, so it does not install the Linux AMD companion library or the Metrum DCGM plugin. The resulting binary still starts on every host and `all-smi doctor --only amd` reports the plugin as unavailable. Use a Metrum release archive for GPM, NVML extras, and DCGM. Use an upstream release archive, Homebrew, a PPA/Debian package, or a source build when Linux AMD monitoring is required without those extras.
 
 ## Option 6: Build from Source
 

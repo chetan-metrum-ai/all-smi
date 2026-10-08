@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 [package]
 name = "all-smi-dcgm-plugin"
-version = "0.26.3"
+version = "0.27.0"
 description = "Runtime-loaded DCGM backend for all-smi (dlopen libdcgm; does not link into the main binary)"
 authors = ["Metrum AI <engineering@metrum.ai>"]
 license = "Apache-2.0"

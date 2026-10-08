@@ -236,3 +236,16 @@ Tagged on fork `main` after merging `lablup/main` through `57091b7` (PR #445 clo
 - Merge fix: initialize fork deep-telemetry `GpuInfo` fields on new upstream Neuron/NPU/test constructors
 
 Crate version remains `0.26.3`; tag is `v0.26.3-metrum.4`.
+
+## Release v0.27.0-metrum.1
+
+Tagged on fork `main` after merging `lablup/main` through `9271e22` (upstream tag `v0.27.0` is `71087e8`; four later commits are included).
+
+### Changes since metrum.4
+
+- Sync upstream v0.27.0: AWS Neuron device support, macOS and Linux per-tick collection cost, Apple Silicon and Rebellions power fixes, Prometheus label stability, Tenstorrent vendor gauges
+- Sync upstream v0.27.0: AMD GPU power reported in watts (MI300X hwmon and gpu_metrics table scaling), `debug-pid-mapping` kept out of a default `cargo install`
+- Sync commits after the upstream tag: cargo package bumps, Launchpad source rules build the AMD companion, Homebrew install drops the tap step, README split into task guides with `CHANGELOG.md`
+- Fork: DCGM plugin crate version moves from 0.26.3 to 0.27.0 with the main binary; Metrum install notes stay in the shortened README and `docs/installation.md`
+
+Crate version is `0.27.0`; tag is `v0.27.0-metrum.1`.

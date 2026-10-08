@@ -1,6 +1,12 @@
 # Changelog
 
-[Home](README.md) · [Release downloads](https://github.com/lablup/all-smi/releases)
+[Home](README.md) · [Metrum releases](https://github.com/chetan-metrum-ai/all-smi/releases) · [Upstream releases](https://github.com/lablup/all-smi/releases)
+
+This tree is the Metrum fork of [lablup/all-smi](https://github.com/lablup/all-smi). Fork builds are tagged `vX.Y.Z-metrum.N` and include NVIDIA GPM, NVML extras, and the DCGM plugin. `cargo install all-smi` from crates.io does not. The history below the Metrum section is the upstream changelog this fork tracks.
+
+## Metrum fork releases
+
+- **v0.27.0-metrum.1 (2026/10/08):** Sync upstream through v0.27.0 and the commits after that tag. Upstream adds AWS Neuron (Trainium and Inferentia) monitoring, lower per-tick collection cost on macOS and Linux, Apple Silicon and Rebellions power fixes, AMD GPU power reported in watts, and a README split into task guides. The Launchpad package build now compiles the AMD companion. The fork keeps GPM, NVML extras, and the DCGM plugin, and the plugin crate version moves to 0.27.0 with the main binary.
 
 ## Release history
 - **v0.27.0 (2026/10/02):** Added AWS Neuron (Trainium and Inferentia) monitoring, cut per-tick collection cost on macOS and Linux, fixed Apple Silicon and Rebellions power over-counts, and stopped all_smi_gpu_info label churn

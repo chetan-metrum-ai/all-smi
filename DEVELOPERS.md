@@ -666,13 +666,13 @@ Downloadable binaries for the Metrum deep-telemetry fork are built by
 on GitHub-hosted runners only (linux x86_64 gnu/musl, linux aarch64, macos
 aarch64 unsigned). Assets land on
 https://github.com/chetan-metrum-ai/all-smi/releases under tags like
-`v0.26.3-metrum.1`. Prefer `all-smi-linux-x86_64.tar.gz` on GPU servers.
+`v0.27.0-metrum.1`. Prefer `all-smi-linux-x86_64.tar.gz` on GPU servers.
 
 Do not use the upstream `release.yml` on this fork: it requires self-hosted
 Windows/Intel-Mac runners, Apple notarization secrets, and Homebrew/PPA jobs
-that are not available here. Do not publish a Metrum tag until after P4
-(real GPM + DCGM plugin). After that tag, smoke the tarball on a GPU box and
-on a no-GPU host (doctor NVIDIA/GPM/DCGM checks SKIP; CPU/memory still work).
+that are not available here. Smoke a new tag's tarball on a GPU box
+(`doctor --only nvidia.gpm,nvidia.dcgm` should pass when the drivers are
+present) and on a no-GPU host (those checks SKIP; CPU and memory still work).
 
 Deep-telemetry GPU work uses Shadeform (`scripts/dev/shadeform.py`); compile
 and live tests run on that instance, not on a local nucbox.
