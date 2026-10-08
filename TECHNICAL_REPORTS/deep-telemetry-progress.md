@@ -261,3 +261,11 @@ RTX PRO 6000 was not offered, so the box is a Lambda Labs H100 PCIe (`209.20.159
 - `cargo test -p all-smi-amd-plugin --release`: 12 passed, including the watts scaling tests
 - Default API scrape after `all_smi_up 1`: `source="gpm"` on the profile ratios; power read 51.364 W idle
 - `ALL_SMI_NVIDIA_DISABLE_GPM=1` plus the DCGM plugin: `source="dcgm"` on the same ratios
+
+Published `v0.27.0-metrum.1` `all-smi-linux-x86_64.tar.gz` (sha256 OK) on the same box: `all-smi 0.27.0`, archive contains `liball_smi_amd.so` and `liball_smi_dcgm.so`, doctor GPM/DCGM 4 pass. Instance deleted after that check.
+
+### AMD power check (DigitalOcean MI325X)
+
+Single MI325X in `tor1` (`gpu-mi325x1-256gb`, image `gpu-amd-base`, droplet `607320438`). The published glibc tarball was copied to `/opt/all-smi-rel` because the loader refuses a plugin under world-writable `/tmp`.
+
+Same-moment readings: hwmon `power1_input` 133000000 µW, `rocm-smi` 134.0 W, `all_smi_gpu_power_consumption_watts` 133. Device id `0x74b9`, ASIC `GFX940/MI300`, SKU `M3250101`. `doctor --only amd` loaded plugin 0.27.0. `amd.rocm.version` still skipped. Droplet deleted after the check.

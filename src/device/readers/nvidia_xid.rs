@@ -11,6 +11,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Mutex, OnceLock};
 
+#[cfg(target_os = "linux")]
 const RING_CAP: usize = 50;
 
 #[derive(Default)]
@@ -62,6 +63,7 @@ pub fn recent_xid_events() -> Vec<(String, u32)> {
         .unwrap_or_default()
 }
 
+#[cfg(target_os = "linux")]
 fn record_event(uuid: String, xid: u32) {
     if let Ok(mut s) = state().lock() {
         *s.counts
