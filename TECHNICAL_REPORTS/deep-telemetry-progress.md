@@ -249,3 +249,15 @@ Tagged on fork `main` after merging `lablup/main` through `9271e22` (upstream ta
 - Fork: DCGM plugin crate version moves from 0.26.3 to 0.27.0 with the main binary; Metrum install notes stay in the shortened README and `docs/installation.md`
 
 Crate version is `0.27.0`; tag is `v0.27.0-metrum.1`.
+
+### Pre-release smoke (Shadeform H100)
+
+RTX PRO 6000 was not offered, so the box is a Lambda Labs H100 PCIe (`209.20.159.188`, driver 570.148.08, DCGM 4.7.0). Instance `d387a6fe-6ec8-423d-b5ca-be7f467b0aa4`.
+
+- Local `cargo test -p all-smi`: lib 1870 passed (2 sudo tests skipped; this host has no `sudo` binary) and the integration/doc targets passed
+- Release build on the H100: `all-smi 0.27.0`, `liball_smi_amd.so`, `liball_smi_dcgm.so`
+- `doctor --only nvidia.gpm,nvidia.dcgm`: 4 pass
+- `doctor --only amd`: plugin 0.27.0 loaded; 3 pass, 5 skip (no AMD GPU / ROCm)
+- `cargo test -p all-smi-amd-plugin --release`: 12 passed, including the watts scaling tests
+- Default API scrape after `all_smi_up 1`: `source="gpm"` on the profile ratios; power read 51.364 W idle
+- `ALL_SMI_NVIDIA_DISABLE_GPM=1` plus the DCGM plugin: `source="dcgm"` on the same ratios
