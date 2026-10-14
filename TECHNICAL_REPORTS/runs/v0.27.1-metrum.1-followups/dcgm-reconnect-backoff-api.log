@@ -1,0 +1,42 @@
+⚠️  Warning: Running without sudo privileges.
+   Some hardware metrics may not be available.
+   For full functionality, run with: sudo all-smi api --port <port>
+Starting API mode...
+[2m2026-10-14T15:54:30.202786Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m attempting DCGM hostengine session [3mconsecutive_failures[0m[2m=[0m0
+[2m2026-10-14T15:54:30.256621Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m DCGM session create failed [3mretry_after_secs[0m[2m=[0m1
+[2m2026-10-14T15:54:31.319056Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m attempting DCGM hostengine session [3mconsecutive_failures[0m[2m=[0m1
+[2m2026-10-14T15:54:31.372713Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m DCGM session create failed [3mretry_after_secs[0m[2m=[0m2
+[2m2026-10-14T15:54:32.423462Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m949
+[2m2026-10-14T15:54:33.474628Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m attempting DCGM hostengine session [3mconsecutive_failures[0m[2m=[0m2
+[2m2026-10-14T15:54:33.528434Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m DCGM session create failed [3mretry_after_secs[0m[2m=[0m4
+[2m2026-10-14T15:54:34.579388Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m2949
+[2m2026-10-14T15:54:35.631789Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m1896
+[2m2026-10-14T15:54:36.682948Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m845
+[2m2026-10-14T15:54:37.734129Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m attempting DCGM hostengine session [3mconsecutive_failures[0m[2m=[0m3
+[2m2026-10-14T15:54:37.787636Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m DCGM session create failed [3mretry_after_secs[0m[2m=[0m8
+[2m2026-10-14T15:54:38.839255Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m6948
+[2m2026-10-14T15:54:39.899863Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m5887
+[2m2026-10-14T15:54:40.951807Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m4835
+[2m2026-10-14T15:54:42.003150Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m3784
+[2m2026-10-14T15:54:43.055587Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m2732
+[2m2026-10-14T15:54:44.107046Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m1680
+[2m2026-10-14T15:54:45.158093Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m629
+[2m2026-10-14T15:54:46.212192Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m attempting DCGM hostengine session [3mconsecutive_failures[0m[2m=[0m4
+[2m2026-10-14T15:54:46.266196Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m DCGM session create failed [3mretry_after_secs[0m[2m=[0m16
+[2m2026-10-14T15:54:47.317214Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m14948
+[2m2026-10-14T15:54:48.371777Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m13894
+[2m2026-10-14T15:54:49.422581Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m12843
+[2m2026-10-14T15:54:50.473751Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m11792
+[2m2026-10-14T15:54:51.525073Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m10741
+[2m2026-10-14T15:54:52.575948Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m9690
+[2m2026-10-14T15:54:53.627086Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m8639
+[2m2026-10-14T15:54:54.677934Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m7588
+[2m2026-10-14T15:54:55.731737Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m6534
+[2m2026-10-14T15:54:56.782406Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m5483
+[2m2026-10-14T15:54:57.833397Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m4432
+[2m2026-10-14T15:54:58.885465Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m3380
+[2m2026-10-14T15:54:59.936070Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m2330
+[2m2026-10-14T15:55:00.986902Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m1279
+[2m2026-10-14T15:55:02.037867Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m skipping DCGM session create during backoff [3mretry_in_ms[0m[2m=[0m228
+[2m2026-10-14T15:55:03.100133Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m attempting DCGM hostengine session [3mconsecutive_failures[0m[2m=[0m5
+[2m2026-10-14T15:55:04.526846Z[0m [34mDEBUG[0m [2mall_smi::device::readers::dcgm[0m[2m:[0m DCGM hostengine session created; retry backoff reset

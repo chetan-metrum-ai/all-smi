@@ -25,8 +25,10 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 // nvml-wrapper explicitly documents GpmSample operations as not thread-safe.
-// The state map mutex is per reader, so it cannot protect NVML's GPM API
-// when separate AllSmi instances sample or free handles concurrently.
+// Keep this lock even though the in-crate call paths hold nvidia_nvml::API_LOCK:
+// GpmState::collect/free_all and probe_two_sample are public and can be called
+// directly with a separate Nvml handle by downstream users. Internal lock
+// order is always API_LOCK then GPM_API_LOCK; do not acquire API_LOCK here.
 static GPM_API_LOCK: Mutex<()> = Mutex::new(());
 
 /// Env var that disables the NVML GPM collector entirely when set to a

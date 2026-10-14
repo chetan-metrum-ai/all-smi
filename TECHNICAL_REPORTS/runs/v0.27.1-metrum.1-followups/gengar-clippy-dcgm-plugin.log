@@ -1,0 +1,3 @@
+   Compiling all-smi v0.27.1 (/home/cgadgil/src/all-smi)
+    Checking all-smi-dcgm-plugin v0.27.1 (/home/cgadgil/src/all-smi/crates/all-smi-dcgm-plugin)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.36s

@@ -1,0 +1,17 @@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@    WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED!     @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+IT IS POSSIBLE THAT SOMEONE IS DOING SOMETHING NASTY!
+Someone could be eavesdropping on you right now (man-in-the-middle attack)!
+It is also possible that a host key has just been changed.
+The fingerprint for the ED25519 key sent by the remote host is
+SHA256:+QEFJkDm2w0QiYIdWj39JY0ZwTaq+9+4TXTSrn75K5M.
+Please contact your system administrator.
+Add correct host key in /home/cgadgil/src/all-smi/.shadeform_known_hosts to get rid of this message.
+Offending ED25519 key in /home/cgadgil/src/all-smi/.shadeform_known_hosts:7
+  remove with:
+  ssh-keygen -f '/home/cgadgil/src/all-smi/.shadeform_known_hosts' -R '[REDACTED_IP]'
+Host key for [REDACTED_IP] has changed and you have requested strict checking.
+Host key verification failed.
+rsync: connection unexpectedly closed (0 bytes received so far) [sender]
+rsync error: unexplained error (code 255) at io.c(232) [sender=3.2.7]

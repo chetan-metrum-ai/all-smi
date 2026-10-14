@@ -1,0 +1,19 @@
+creating H100 H100 in massedcompute/desmoines-usa-1 os=ubuntu22.04_cuda13.0_shade_os hourly_price_cents=273.0 hourly_price_usd=2.73 ssh_key_id=9980a8c6-a322-4db9-a340-b624c5183e3d
+created id=06f2a92e-9d9b-4d6f-aed1-7b1ac454af60; polling until active...
+  status=creating ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending ip=None
+  status=pending ip=None
+  status=pending ip=None
+  status=active ip=[REDACTED_IP]
+instance active: {"id": "06f2a92e-9d9b-4d6f-aed1-7b1ac454af60", "ip": "[REDACTED_IP]", "ssh_user": "shadeform", "ssh_port": 22, "shade_instance_type": "H100", "gpu_type": "H100", "cloud": "massedcompute", "region": "desmoines-usa-1", "os": "ubuntu22.04_cuda13.0_shade_os", "hourly_price": 273, "hourly_price_usd": 2.73, "created_at": "2026-10-14T15:31:00.219398+00:00", "status": "active"}

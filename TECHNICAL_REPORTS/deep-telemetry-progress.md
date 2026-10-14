@@ -324,3 +324,20 @@ The fix has three parts:
 - Shadeform listed $2.73/hour for the first two instances and $2.50/hour for the third. Using ~20, 58, and 11 minutes respectively, total GPU compute is estimated at about **$4.02** (provider billing granularity may vary).
 
 Redacted command logs and crash-vs-final evidence are in `TECHNICAL_REPORTS/runs/v0.27.1-metrum.1-nvml-race/`.
+
+### DCGM reconnect backoff follow-up
+
+`src/device/readers/dcgm.rs` now tracks a per-plugin host-side `CreateSessionBackoff`: failed `create_session` calls schedule retries after 1, 2, 4, 8, 16, 32, then 60 seconds repeatedly; successful session creation clears the failure count/deadline. The monotonic deadline logic is tested with injected `Instant` values, and a pure schedule test checks the cap without loading DCGM.
+
+`GPM_API_LOCK` remains in `src/device/readers/nvidia_gpm.rs`. The in-crate `collect`, `free_all`, and doctor `probe_two_sample` paths are reached under `nvidia_nvml::API_LOCK`, but these helpers and `GpmState` remain public and downstream callers can invoke them with their own `Nvml` handle outside that lock. The GPM mutex therefore still protects those direct callers. In-crate nesting is consistently `API_LOCK` → `GPM_API_LOCK`; the GPM code never acquires the NVML lock, so it introduces no reverse lock order.
+
+#### Follow-up validation
+
+- Gengar: `cargo fmt --check`; `cargo clippy -p all-smi --all-targets -- -D warnings`; `cargo clippy -p all-smi-dcgm-plugin --all-targets -- -D warnings`; `cargo test -p all-smi -- --skip test_ensure_sudo_permissions` (2,082 passed, 2 ignored, 2 filtered; all integration and doctests pass); `cargo build --release --workspace --exclude all-smi-amd-plugin`.
+- Shadeform H100 PCIe, driver 580.126.09 / CUDA 13.0 / DCGM 4.7.0 / rustc 1.99.0. Full `cargo test --release -- --test-threads=1` passed (2,084 passed, 2 ignored; all integration and doctest targets pass). `cargo build --release --workspace` included both plugins. Default-parallel `library_api_test` passed 10/10 (26/26 tests per run).
+- `remote-release-smoke.sh` passed with external `nvidia-dcgm.service`: NVIDIA doctor 4/4; AMD doctor 3 pass / 5 skip; AMD tests 12/12; default scrape 20 `source="gpm"` series; fallback scrape 13 `source="dcgm"` series.
+- Backoff runtime test stopped the external hostengine while a single `all-smi api` process ran for 30 polls. Trace output shows 5 `create_session` attempts and 25 deferred retries—not one attempt per poll. After restarting the hostengine, `source="dcgm"` returned on recovery poll 2 (within about 2 seconds); the session-created trace confirms the backoff reset. The delay trace followed 1/2/4/8/16 seconds before recovery. `nvidia-smi` remained responsive; baseline and final dmesg contained no segfault, NVRM assertion, or RCU-stall matches.
+
+#### Follow-up Shadeform instance and cost
+
+H100 instance `06f2a92e-9d9b-4d6f-aed1-7b1ac454af60` (driver 580.126.09, $2.73/hour) was created at 15:31:00 UTC, deleted after validation at approximately 15:55 UTC, and confirmed absent by the final status check. Estimated rental cost was **about $1.10**; billing granularity may vary. Redacted follow-up logs are in `TECHNICAL_REPORTS/runs/v0.27.1-metrum.1-followups/`.

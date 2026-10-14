@@ -10,6 +10,7 @@ use std::collections::HashSet;
 use std::ffi::c_void;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use libloading::Library;
 use serde::Deserialize;
@@ -89,10 +90,62 @@ struct LoadedPlugin {
     api: DcgmPluginApiV1,
     path: PathBuf,
     metadata: PluginMetadata,
-    session: Mutex<*mut c_void>,
+    session: Mutex<PluginSession>,
 }
 
-// SAFETY: session pointer is only used under the Mutex; library outlives it.
+struct PluginSession {
+    handle: *mut c_void,
+    create_backoff: CreateSessionBackoff,
+}
+
+impl Default for PluginSession {
+    fn default() -> Self {
+        Self {
+            handle: std::ptr::null_mut(),
+            create_backoff: CreateSessionBackoff::default(),
+        }
+    }
+}
+
+#[derive(Default)]
+struct CreateSessionBackoff {
+    consecutive_failures: u32,
+    retry_at: Option<Instant>,
+}
+
+impl CreateSessionBackoff {
+    fn retry_due_at(&self, now: Instant) -> bool {
+        self.retry_at.is_none_or(|retry_at| now >= retry_at)
+    }
+
+    fn record_failure_at(&mut self, now: Instant) -> Duration {
+        let delay = Self::delay_for_failures(self.consecutive_failures);
+        self.consecutive_failures = self.consecutive_failures.saturating_add(1);
+        self.retry_at = Some(now + delay);
+        delay
+    }
+
+    fn reset(&mut self) {
+        self.consecutive_failures = 0;
+        self.retry_at = None;
+    }
+
+    fn delay_for_failures(consecutive_failures: u32) -> Duration {
+        let seconds = match consecutive_failures.min(6) {
+            0 => 1,
+            1 => 2,
+            2 => 4,
+            3 => 8,
+            4 => 16,
+            5 => 32,
+            _ => 60,
+        };
+        Duration::from_secs(seconds)
+    }
+}
+
+// SAFETY: session pointer and backoff state are only accessed under the Mutex;
+// the plugin library outlives every session handle.
 unsafe impl Send for LoadedPlugin {}
 unsafe impl Sync for LoadedPlugin {}
 
@@ -138,7 +191,21 @@ fn sample_map(plugin: &LoadedPlugin) -> Result<HashMap<String, DcgmGpuSample>, S
         .session
         .lock()
         .map_err(|_| "dcgm session lock poisoned")?;
-    if session.is_null() {
+    if session.handle.is_null() {
+        let now = Instant::now();
+        if !session.create_backoff.retry_due_at(now) {
+            let retry_in_ms = session
+                .create_backoff
+                .retry_at
+                .map(|retry_at| retry_at.saturating_duration_since(now).as_millis())
+                .unwrap_or_default();
+            tracing::debug!(retry_in_ms, "skipping DCGM session create during backoff");
+            return Err("dcgm create_session retry deferred by backoff".into());
+        }
+        tracing::debug!(
+            consecutive_failures = session.create_backoff.consecutive_failures,
+            "attempting DCGM hostengine session"
+        );
         let create = plugin
             .api
             .create_session
@@ -146,11 +213,21 @@ fn sample_map(plugin: &LoadedPlugin) -> Result<HashMap<String, DcgmGpuSample>, S
         // SAFETY: create_session is validated; returns null on failure.
         let handle = unsafe { create() };
         if handle.is_null() {
-            return Err("dcgm create_session returned null".into());
+            let delay = session.create_backoff.record_failure_at(Instant::now());
+            tracing::debug!(
+                retry_after_secs = delay.as_secs(),
+                "DCGM session create failed"
+            );
+            return Err(format!(
+                "dcgm create_session returned null (retry in {}s)",
+                delay.as_secs()
+            ));
         }
-        *session = handle;
+        session.handle = handle;
+        session.create_backoff.reset();
+        tracing::debug!("DCGM hostengine session created; retry backoff reset");
     }
-    let handle = *session;
+    let handle = session.handle;
     let envelope: SampleEnvelope = read_buffer(&plugin.api, |out| {
         let sample = plugin.api.sample_json.expect("validated function pointer");
         // SAFETY: handle owned by this plugin; out points to live buffer desc.
@@ -453,7 +530,7 @@ fn load_candidate(path: PathBuf) -> Result<LoadedPlugin, String> {
         api,
         path,
         metadata,
-        session: Mutex::new(std::ptr::null_mut()),
+        session: Mutex::new(PluginSession::default()),
     })
 }
 
@@ -527,6 +604,33 @@ fn free_buffer(api: &DcgmPluginApiV1, buffer: &mut DcgmPluginBuffer) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn create_session_backoff_doubles_and_caps_at_sixty_seconds() {
+        let actual: Vec<_> = (0..9)
+            .map(|failures| CreateSessionBackoff::delay_for_failures(failures).as_secs())
+            .collect();
+
+        assert_eq!(actual, [1, 2, 4, 8, 16, 32, 60, 60, 60]);
+    }
+
+    #[test]
+    fn create_session_backoff_respects_deadline_and_resets_on_success() {
+        let start = Instant::now();
+        let mut backoff = CreateSessionBackoff::default();
+
+        assert!(backoff.retry_due_at(start));
+        assert_eq!(backoff.record_failure_at(start), Duration::from_secs(1));
+        assert!(!backoff.retry_due_at(start + Duration::from_millis(999)));
+        assert!(backoff.retry_due_at(start + Duration::from_secs(1)));
+
+        backoff.record_failure_at(start + Duration::from_secs(1));
+        assert_eq!(backoff.retry_at, Some(start + Duration::from_secs(3)));
+        backoff.reset();
+        assert!(backoff.retry_due_at(start + Duration::from_secs(1)));
+        assert_eq!(backoff.consecutive_failures, 0);
+        assert_eq!(backoff.retry_at, None);
+    }
 
     #[test]
     fn unavailable_plugin_does_not_panic_on_merge() {
