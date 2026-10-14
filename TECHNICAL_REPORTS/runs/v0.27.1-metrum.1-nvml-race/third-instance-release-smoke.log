@@ -1,0 +1,114 @@
+=== version ===
+all-smi 0.27.1
+NVIDIA H100 PCIe, 570.195.03
+
+dcgmi  version: 4.7.0
+
+=== doctor --only nvidia.gpm,nvidia.dcgm ===
+all-smi doctor — 0.27.1
+Running 4 checks…
+
+PASS nvidia.dcgm.hostengine           host engine reachable: 1 GPU found (Active).
+PASS nvidia.dcgm.library              dcgmi at /usr/bin/dcgmi; libdcgm present
+PASS nvidia.dcgm.prof_module          dcgmi dmon -e 1002 succeeded (profiling module usable)
+PASS nvidia.gpm.supported             GPM activity metrics sampled on 1 of 1 device(s) that claim support (NVIDIA H100 PCIe (GPU-64456671-5e74-17f1-5298-050fb7948731))
+
+Summary: 4 pass, 0 warn, 0 fail, 0 skipped
+Exit code: 0
+=== doctor --only amd ===
+all-smi doctor — 0.27.1
+Running 8 checks…
+
+SKIP amd.adl.adapters                 ADL is Windows-only
+SKIP amd.adl.library                  ADL is Windows-only
+SKIP amd.adl.per_adapter              ADL is Windows-only
+SKIP amd.adl.sensors                  ADL is Windows-only
+PASS amd.build.target_env             glibc Linux build — AMD runtime loader compiled in; the `amd` cargo feature does not gate it
+PASS amd.dri.perms                    3 node(s): card1, renderD128, card0
+PASS amd.libamdgpu_top.abi            loaded /home/<user>/all-smi/target/release/liball_smi_amd.so (plugin 0.27.1, ABI v1, libamdgpu_top 0.11.5)
+SKIP amd.rocm.version                 ROCm not detected (neither /opt/rocm nor rocminfo)
+
+Summary: 3 pass, 0 warn, 0 fail, 5 skipped
+Exit code: 0
+=== cargo test -p all-smi-amd-plugin --release ===
+   Compiling serde_core v1.0.229
+   Compiling mio v1.2.3
+   Compiling rustix v1.1.5
+   Compiling tracing v0.1.44
+   Compiling serde_json v1.0.151
+   Compiling nix v0.31.3
+   Compiling axum-core v0.5.6
+   Compiling form_urlencoded v1.2.2
+   Compiling all-smi v0.27.1 (/home/shadeform/all-smi)
+   Compiling libdrm_amdgpu_sys v0.8.16
+   Compiling num_enum v0.7.6
+   Compiling url v2.5.8
+   Compiling luwen-kmd v0.9.0
+   Compiling tracing-subscriber v0.3.23
+   Compiling tokio v1.53.1
+   Compiling russh-cryptovec v0.62.0
+   Compiling serde v1.0.229
+   Compiling uuid v1.26.1
+   Compiling enumflags2 v0.7.12
+   Compiling zvariant_utils v4.2.0
+   Compiling zcheapstr v1.1.0
+   Compiling bincode v1.3.3
+   Compiling zvariant v5.15.0
+   Compiling luwen-api v0.9.0
+   Compiling libamdgpu_top v0.11.5
+   Compiling polling v3.11.0
+   Compiling xattr v1.6.1
+   Compiling tar v0.4.46
+   Compiling async-io v2.6.0
+   Compiling async-signal v0.2.14
+   Compiling async-process v2.5.0
+   Compiling tokio-util v0.7.19
+   Compiling tokio-rustls v0.26.6
+   Compiling tokio-stream v0.1.19
+   Compiling russh-util v0.52.0
+   Compiling zbus_names v4.3.4
+   Compiling russh v0.63.3
+   Compiling luwen-pci v0.9.0
+   Compiling zbus v5.19.0
+   Compiling h2 v0.4.19
+   Compiling tower v0.5.3
+   Compiling axum v0.8.9
+   Compiling tower-http v0.6.11
+   Compiling hyper v1.11.1
+   Compiling hyper-util v0.1.21
+   Compiling hyper-timeout v0.5.2
+   Compiling hyper-rustls v0.27.10
+   Compiling tonic v0.14.6
+   Compiling reqwest v0.13.5
+   Compiling cgroups-rs v0.5.1
+   Compiling tonic-prost v0.14.6
+   Compiling all-smi-amd-plugin v0.27.1 (/home/shadeform/all-smi/crates/all-smi-amd-plugin)
+    Finished `release` profile [optimized] target(s) in 26.18s
+     Running unittests src/lib.rs (target/release/deps/all_smi_amd-609d06e29e8fc895)
+
+running 12 tests
+test reader::tests::clamp_fan_rpm_bounds_a_garbled_sensor_reading ... ok
+test reader::tests::hwmon_power_is_already_watts ... ok
+test reader::tests::insert_sensor_details_writes_the_shared_reader_conventions ... ok
+test reader::tests::insert_sensor_details_with_no_sensors_writes_nothing ... ok
+test reader::tests::metrics_socket_power_format_1_is_watts ... ok
+test reader::tests::metrics_socket_power_rejects_sentinels_and_unknown_formats ... ok
+test reader::tests::test_gpu_metric_validation_constants ... ok
+test reader::tests::metrics_socket_power_formats_2_and_3_are_milliwatts ... ok
+test reader::tests::test_version_validation_rejects_invalid ... ok
+test reader::tests::test_memory_validation_constants ... ok
+test reader::tests::test_max_version_component_validation ... ok
+test tests::metadata_matches_exact_dependency_pin ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+=== live scrapes ===
+--- default: all_smi_up / source label counts / power
+all_smi_up{instance="shadecloud", hostname="shadecloud"} 1
+     20 source="gpm"
+all_smi_gpu_power_consumption_watts{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-64456671-5e74-17f1-5298-050fb7948731", gpu_index="0"} 50.435
+--- dcgm-fallback: all_smi_up / source label counts / power
+all_smi_up{instance="shadecloud", hostname="shadecloud"} 1
+     13 source="dcgm"
+all_smi_gpu_power_consumption_watts{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-64456671-5e74-17f1-5298-050fb7948731", gpu_index="0"} 50.501
+SMOKE_DONE

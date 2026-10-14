@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 // Module for device readers with reduced code duplication
 
@@ -39,6 +41,7 @@ pub mod nvidia_gpm;
 pub mod nvidia_hardware;
 pub mod nvidia_jetson;
 pub mod nvidia_mig;
+pub(crate) mod nvidia_nvml;
 pub mod nvidia_vgpu;
 pub mod nvidia_xid;
 pub mod rebellions;

@@ -11,6 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
 
 //! Integration tests for the all-smi library API.
 
@@ -154,6 +156,45 @@ fn test_multiple_allsmi_instances() {
     // Both should work
     let _ = smi1.get_gpu_info();
     let _ = smi2.get_gpu_info();
+}
+
+#[test]
+fn test_allsmi_concurrent_create_and_drop_on_gpu() {
+    use std::sync::{Arc, Barrier};
+
+    const WORKERS: usize = 12;
+    const INSTANCES_PER_WORKER: usize = 4;
+
+    // Skip only when no NVIDIA device is visible. The test specifically
+    // stresses NVML lifetime and GPM sample cleanup on real hardware.
+    let probe = AllSmi::new().expect("Failed to create GPU probe");
+    if probe.get_gpu_info().is_empty() {
+        eprintln!("Skipping concurrent NVML lifetime stress: no GPU detected");
+        return;
+    }
+    drop(probe);
+
+    let start = Arc::new(Barrier::new(WORKERS));
+    let workers: Vec<_> = (0..WORKERS)
+        .map(|_| {
+            let start = Arc::clone(&start);
+            std::thread::spawn(move || {
+                start.wait();
+                for _ in 0..INSTANCES_PER_WORKER {
+                    let smi = AllSmi::new().expect("Failed to create AllSmi");
+                    assert!(
+                        !smi.get_gpu_info().is_empty(),
+                        "GPU should remain available during concurrent reader lifetime"
+                    );
+                    drop(smi);
+                }
+            })
+        })
+        .collect();
+
+    for worker in workers {
+        worker.join().expect("NVML stress worker panicked");
+    }
 }
 
 #[test]

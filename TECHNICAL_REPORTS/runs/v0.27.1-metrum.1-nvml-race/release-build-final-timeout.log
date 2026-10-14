@@ -1,0 +1,4 @@
+   Compiling all-smi v0.27.1 (/home/shadeform/all-smi)
+   Compiling all-smi-dcgm-plugin v0.27.1 (/home/shadeform/all-smi/crates/all-smi-dcgm-plugin)
+   Compiling all-smi-amd-plugin v0.27.1 (/home/shadeform/all-smi/crates/all-smi-amd-plugin)
+    Finished `release` profile [optimized] target(s) in 2m 01s

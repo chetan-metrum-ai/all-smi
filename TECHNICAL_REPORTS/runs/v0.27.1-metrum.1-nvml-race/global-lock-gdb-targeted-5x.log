@@ -1,0 +1,1387 @@
+
+=== gdb concurrent regression attempt 01/05 ===
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+running 1 test
+[Detaching after vfork from child process 28476]
+[Detaching after vfork from child process 28477]
+[Detaching after vfork from child process 28478]
+[Detaching after vfork from child process 28479]
+[Detaching after vfork from child process 28480]
+[Detaching after vfork from child process 28481]
+[Detaching after vfork from child process 28482]
+[Detaching after vfork from child process 28483]
+[Detaching after vfork from child process 28484]
+[Detaching after vfork from child process 28485]
+[Detaching after vfork from child process 28486]
+[Detaching after vfork from child process 28487]
+[Detaching after vfork from child process 28488]
+[Detaching after vfork from child process 28489]
+[Detaching after vfork from child process 28490]
+[Detaching after vfork from child process 28491]
+ibwarn: [28472] get_abi_version: can't read ABI version from /sys/class/infiniband_mad/abi_version (No such file or directory): is ib_umad module loaded?
+
+Thread 23 "test_allsmi_con" received signal SIGSEGV, Segmentation fault.
+[Switching to Thread 0x7fffd03fd640 (LWP 28512)]
+0x00007ffff6a328c1 in ?? () from /lib/x86_64-linux-gnu/libnvidia-ml.so.1
+
+Thread 33 (Thread 0x7fffb49f5640 (LWP 28522) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736223729216, 17, 140737350551440, 140737349935392, -6393040489586433484, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 32 (Thread 0x7fffb4bf6640 (LWP 28521) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736225830464, 17, 140737350551440, 140737349935392, -6393040215245397452, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 31 (Thread 0x7fffb4df7640 (LWP 28520) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736227931712, 17, 140737350551440, 140737349935392, -6393041040415989196, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 30 (Thread 0x7fffb4ff8640 (LWP 28519) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736230032960, 17, 140737350551440, 140737349935392, -6393040766074953164, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 29 (Thread 0x7fffb51f9640 (LWP 28518) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736232134208, 17, 140737350551440, 140737349935392, -6393043794563767756, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 28 (Thread 0x7fffb53fa640 (LWP 28517) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736234235456, 17, 140737350551440, 140737349935392, -6393043520222731724, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 27 (Thread 0x7fffb55fb640 (LWP 28516) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736236336704, 17, 140737350551440, 140737349935392, -6393044345393323468, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 26 (Thread 0x7fffb57fc640 (LWP 28515) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736238437952, 17, 140737350551440, 140737349935392, -6393044071052287436, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 25 (Thread 0x7fffb59fd640 (LWP 28514) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736240539200, 17, 140737350551440, 140737349935392, -6393042692904656332, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 24 (Thread 0x7fffb5bfe640 (LWP 28513) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736242640448, 17, 140737350551440, 140737349935392, -6393042418563620300, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 23 (Thread 0x7fffd03fd640 (LWP 28512) "test_allsmi_con"):
+#0  0x00007ffff6a328c1 in ?? () from /lib/x86_64-linux-gnu/libnvidia-ml.so.1
+No symbol table info available.
+#1  0x00007ffff6a7810b in nvmlGpmSampleGet () from /lib/x86_64-linux-gnu/libnvidia-ml.so.1
+No symbol table info available.
+#2  0x0000555555827266 in ?? ()
+No symbol table info available.
+#3  0x000055555577ee53 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140736687232576, 17, 140737350551440, 140737349935392, -6392979745863966156, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 22 (Thread 0x7ffff43ff640 (LWP 28511) "test_allsmi_con"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555577d570 in ?? ()
+No symbol table info available.
+#4  0x000055555579a0ea in ?? ()
+No symbol table info available.
+#5  0x00005555556bb0a3 in ?? ()
+No symbol table info available.
+#6  0x00005555556bb18e in ?? ()
+No symbol table info available.
+#7  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349935040, 6392915426149589556, 140737291220544, 17, 140737350551440, 140737349935392, -6392900582100508108, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 21 (Thread 0x7fffb63ff640 (LWP 28510) "test_allsmi_con"):
+#0  __futex_abstimed_wait_common64 (private=<optimized out>, cancel=true, abstime=0x7fffb63fe590, op=393, expected=0, futex_word=0x7ffff00013a0) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=<optimized out>, abstime=0x7fffb63fe590, clockid=0, expected=0, futex_word=0x7ffff00013a0) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff00013a0, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffb63fe590, private=<optimized out>) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c9c970 in do_futex_wait (sem=sem@entry=0x7ffff00013a0, abstime=abstime@entry=0x7fffb63fe590, clockid=0) at ./nptl/sem_waitcommon.c:111
+        err = <optimized out>
+#4  0x00007ffff7c9ca13 in __new_sem_wait_slow64 (sem=0x7ffff00013a0, abstime=0x7fffb63fe590, clockid=0) at ./nptl/sem_waitcommon.c:183
+        _buffer = {__routine = 0x7ffff7c9c940 <__sem_wait_cleanup>, __arg = 0x7ffff00013a0, __canceltype = 0, __prev = 0x0}
+        err = <optimized out>
+        d = 0
+#5  0x00007fffb64e8cff in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmoduleprofiling.so.4
+No symbol table info available.
+#6  0x00007fffb64f655b in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmoduleprofiling.so.4
+No symbol table info available.
+#7  0x00007fffb64d75ad in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmoduleprofiling.so.4
+No symbol table info available.
+#8  0x00007fffb6584d95 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmoduleprofiling.so.4
+No symbol table info available.
+#9  0x00007fffb6584e19 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmoduleprofiling.so.4
+No symbol table info available.
+#10 0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349923584, 6392915426149589556, 140736251033152, 17, 140737350551440, 140737349923936, -6393036921542352332, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#11 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 20 (Thread 0x7fffb6ffd640 (LWP 28509) "sysev_thread"):
+#0  0x00007ffff7d18d1f in __GI___poll (fds=0x7fffb6ffc7b0, nfds=1, timeout=1000) at ../sysdeps/unix/sysv/linux/poll.c:29
+        sc_ret = -516
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+#1  0x00007ffff6ac0ef7 in ?? () from /lib/x86_64-linux-gnu/libnvidia-ml.so.1
+No symbol table info available.
+#2  0x00007ffff6a4ee10 in nvmlSystemEventSetWait () from /lib/x86_64-linux-gnu/libnvidia-ml.so.1
+No symbol table info available.
+#3  0x00007ffff5beb5e5 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#4  0x00007ffff5ac1ba8 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#5  0x00007ffff5acc3a8 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5cda685 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff5cda709 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349925392, 6392915426149589556, 140736263607872, 17, 140737350551440, 140737349925744, -6393036370712796620, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 19 (Thread 0x7fffb77fe640 (LWP 28508) "cache_mgr_main"):
+#0  __futex_abstimed_wait_common64 (private=<optimized out>, cancel=true, abstime=0x7fffb77fd440, op=393, expected=0, futex_word=0x7ffff0074240) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=<optimized out>, abstime=0x7fffb77fd440, clockid=0, expected=0, futex_word=0x7ffff0074240) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff0074240, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffb77fd440, private=<optimized out>) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c9c970 in do_futex_wait (sem=sem@entry=0x7ffff0074240, abstime=abstime@entry=0x7fffb77fd440, clockid=0) at ./nptl/sem_waitcommon.c:111
+        err = <optimized out>
+#4  0x00007ffff7c9ca13 in __new_sem_wait_slow64 (sem=0x7ffff0074240, abstime=0x7fffb77fd440, clockid=0) at ./nptl/sem_waitcommon.c:183
+        _buffer = {__routine = 0x7ffff7c9c940 <__sem_wait_cleanup>, __arg = 0x7ffff0074240, __canceltype = 0, __prev = 0x0}
+        err = <optimized out>
+        d = 0
+#5  0x00007ffff59ed7df in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5a12c6b in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff59d0296 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff59d04ea in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#9  0x00007ffff5cda685 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#10 0x00007ffff5cda709 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#11 0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349924720, 6392915426149589556, 140736272000576, 17, 140737350551440, 140737349925072, -6393039669784550860, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#12 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 18 (Thread 0x7fffb7fff640 (LWP 28507) "test_allsmi_con"):
+#0  __futex_abstimed_wait_common64 (private=<optimized out>, cancel=true, abstime=0x7fffb7ffe560, op=393, expected=0, futex_word=0x7ffff008ea60) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=<optimized out>, abstime=0x7fffb7ffe560, clockid=0, expected=0, futex_word=0x7ffff008ea60) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff008ea60, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffb7ffe560, private=<optimized out>) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c9c970 in do_futex_wait (sem=sem@entry=0x7ffff008ea60, abstime=abstime@entry=0x7fffb7ffe560, clockid=0) at ./nptl/sem_waitcommon.c:111
+        err = <optimized out>
+#4  0x00007ffff7c9ca13 in __new_sem_wait_slow64 (sem=0x7ffff008ea60, abstime=0x7fffb7ffe560, clockid=0) at ./nptl/sem_waitcommon.c:183
+        _buffer = {__routine = 0x7ffff7c9c940 <__sem_wait_cleanup>, __arg = 0x7ffff008ea60, __canceltype = 0, __prev = 0x0}
+        err = <optimized out>
+        d = 0
+#5  0x00007ffff44e09cf in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#6  0x00007ffff44e663b in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#7  0x00007ffff44d63cd in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#8  0x00007ffff45f31c5 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#9  0x00007ffff45f3249 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#10 0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349916592, 6392915426149589556, 140736280393280, 17, 140737350551440, 140737349916944, -6393038570809793996, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#11 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 17 (Thread 0x7fffd0bfe640 (LWP 28506) "test_allsmi_con"):
+#0  0x00007ffff7ce57b8 in __GI___clock_nanosleep (clock_id=clock_id@entry=0, flags=flags@entry=0, req=0x7fffd0bfd340, rem=0x7fffd0bfd340) at ../sysdeps/unix/sysv/linux/clock_nanosleep.c:78
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        r = <optimized out>
+#1  0x00007ffff7cea637 in __GI___nanosleep (req=<optimized out>, rem=<optimized out>) at ../sysdeps/unix/sysv/linux/nanosleep.c:25
+        ret = <optimized out>
+#2  0x00007ffff459d565 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#3  0x00007ffff45a60e2 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#4  0x00007ffff44e6b67 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#5  0x00007ffff45a27e9 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#6  0x00007ffff45f31c5 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#7  0x00007ffff45f3249 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349915792, 6392915426149589556, 140736695625280, 17, 140737350551440, 140737349916144, -6392978646889209292, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 16 (Thread 0x7fffd13ff640 (LWP 28505) "test_allsmi_con"):
+#0  __futex_abstimed_wait_common64 (private=0, cancel=true, abstime=0x7fffd13febc0, op=393, expected=0, futex_word=0x7ffff00b7c08) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=0, abstime=0x7fffd13febc0, clockid=0, expected=0, futex_word=0x7ffff00b7c08) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff00b7c08, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffd13febc0, private=private@entry=0) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c93e5b in __pthread_cond_wait_common (abstime=0x7fffd13febc0, clockid=0, mutex=0x7ffff00b7bb8, cond=0x7ffff00b7be0) at ./nptl/pthread_cond_wait.c:503
+        spin = 0
+        buffer = {__routine = 0x7ffff7c936e0 <__condvar_cleanup_waiting>, __arg = 0x7fffd13feb50, __canceltype = 0, __prev = 0x0}
+        cbuffer = {wseq = 436, cond = 0x7ffff00b7be0, mutex = 0x7ffff00b7bb8, private = 0}
+        err = <optimized out>
+        g = 0
+        flags = <optimized out>
+        g1_start = <optimized out>
+        maxspin = 0
+        signals = <optimized out>
+        result = 0
+        wseq = 436
+        seq = 218
+        private = 0
+        maxspin = <optimized out>
+        err = <optimized out>
+        result = <optimized out>
+        wseq = <optimized out>
+        g = <optimized out>
+        seq = <optimized out>
+        flags = <optimized out>
+        private = <optimized out>
+        signals = <optimized out>
+        done = <optimized out>
+        g1_start = <optimized out>
+        spin = <optimized out>
+        buffer = <optimized out>
+        cbuffer = <optimized out>
+        s = <optimized out>
+#4  ___pthread_cond_timedwait64 (cond=0x7ffff00b7be0, mutex=0x7ffff00b7bb8, abstime=0x7fffd13febc0) at ./nptl/pthread_cond_wait.c:652
+        flags = <optimized out>
+        clockid = 0
+#5  0x00007ffff4595809 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#6  0x00007ffff459592e in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#7  0x00007ffff46e92a8 in ?? () from /lib/x86_64-linux-gnu/../../libexec/datacenter-gpu-manager-4/libdcgmmodulenvswitch.so.4
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349916560, 6392915426149589556, 140736704017984, 17, 140737350551440, 140737349916912, -6392981945960963532, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 14 (Thread 0x7fffd27fc640 (LWP 28503) "cache_mgr_event"):
+#0  __futex_abstimed_wait_common64 (private=-579508480, cancel=true, abstime=0x7fffd27c7e10, op=393, expected=0, futex_word=0x7ffff0074170) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=-579508480, abstime=0x7fffd27c7e10, clockid=1, expected=0, futex_word=0x7ffff0074170) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 0
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff0074170, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffd27c7e10, private=private@entry=0) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c93e5b in __pthread_cond_wait_common (abstime=0x7fffd27c7e10, clockid=0, mutex=0x7ffff0074120, cond=0x7ffff0074148) at ./nptl/pthread_cond_wait.c:503
+        spin = 0
+        buffer = {__routine = 0x7ffff7c936e0 <__condvar_cleanup_waiting>, __arg = 0x7fffd27c7cf0, __canceltype = 0, __prev = 0x0}
+        cbuffer = {wseq = 4, cond = 0x7ffff0074148, mutex = 0x7ffff0074120, private = 0}
+        err = <optimized out>
+        g = 0
+        flags = <optimized out>
+        g1_start = <optimized out>
+        maxspin = 0
+        signals = <optimized out>
+        result = 0
+        wseq = 4
+        seq = 2
+        private = 0
+        maxspin = <optimized out>
+        err = <optimized out>
+        result = <optimized out>
+        wseq = <optimized out>
+        g = <optimized out>
+        seq = <optimized out>
+        flags = <optimized out>
+        private = <optimized out>
+        signals = <optimized out>
+        done = <optimized out>
+        g1_start = <optimized out>
+        spin = <optimized out>
+        buffer = <optimized out>
+        cbuffer = <optimized out>
+        s = <optimized out>
+#4  ___pthread_cond_timedwait64 (cond=0x7ffff0074148, mutex=0x7ffff0074120, abstime=0x7fffd27c7e10) at ./nptl/pthread_cond_wait.c:652
+        flags = <optimized out>
+        clockid = 0
+#5  0x00007ffff5cd613a in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff59db8dd in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff59dd67f in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff5cda685 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#9  0x00007ffff5cda709 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#10 0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349924736, 6392915426149589556, 140736724977216, 11, 140737350551440, 140737349925088, -6392975901331365324, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#11 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 13 (Thread 0x7fffd2ffd640 (LWP 28502) "NvmlTaskRunner"):
+#0  __futex_abstimed_wait_common64 (private=<optimized out>, cancel=true, abstime=0x7fffd2ffc490, op=393, expected=0, futex_word=0x7ffff0079250) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=<optimized out>, abstime=0x7fffd2ffc490, clockid=0, expected=0, futex_word=0x7ffff0079250) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff0079250, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffd2ffc490, private=<optimized out>) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c9c970 in do_futex_wait (sem=sem@entry=0x7ffff0079250, abstime=abstime@entry=0x7fffd2ffc490, clockid=0) at ./nptl/sem_waitcommon.c:111
+        err = <optimized out>
+#4  0x00007ffff7c9ca13 in __new_sem_wait_slow64 (sem=0x7ffff0079250, abstime=0x7fffd2ffc490, clockid=0) at ./nptl/sem_waitcommon.c:183
+        _buffer = {__routine = 0x7ffff7c9c940 <__sem_wait_cleanup>, __arg = 0x7ffff0079250, __canceltype = -141019544, __prev = 0x0}
+        err = <optimized out>
+        d = 0
+#5  0x00007ffff59ed7df in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5a12c6b in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff5b41822 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff5cda685 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#9  0x00007ffff5cda709 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#10 0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349924736, 6392915426149589556, 140736733369920, 11, 140737350551440, 140737349925088, -6392974798061641164, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#11 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 12 (Thread 0x7fffd37fe640 (LWP 28501) "test_allsmi_con"):
+#0  __futex_abstimed_wait_common64 (private=<optimized out>, cancel=true, abstime=0x7fffd37fd4e0, op=393, expected=0, futex_word=0x7ffff0073370) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=<optimized out>, abstime=0x7fffd37fd4e0, clockid=0, expected=0, futex_word=0x7ffff0073370) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff0073370, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffd37fd4e0, private=<optimized out>) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c9c970 in do_futex_wait (sem=sem@entry=0x7ffff0073370, abstime=abstime@entry=0x7fffd37fd4e0, clockid=0) at ./nptl/sem_waitcommon.c:111
+        err = <optimized out>
+#4  0x00007ffff7c9ca13 in __new_sem_wait_slow64 (sem=0x7ffff0073370, abstime=0x7fffd37fd4e0, clockid=0) at ./nptl/sem_waitcommon.c:183
+        _buffer = {__routine = 0x7ffff7c9c940 <__sem_wait_cleanup>, __arg = 0x7ffff0073370, __canceltype = 320, __prev = 0x0}
+        err = <optimized out>
+        d = 8589934592
+#5  0x00007ffff59ed7df in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5a12c6b in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff5c5d1c2 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff5de0944 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#9  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349925456, 6392915426149589556, 140736741762624, 11, 140737350551440, 140737349925808, -6392978097133395404, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#10 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 11 (Thread 0x7fffd3fff640 (LWP 28500) "test_allsmi_con"):
+#0  __futex_abstimed_wait_common64 (private=<optimized out>, cancel=true, abstime=0x7fffd3ffe4e0, op=393, expected=0, futex_word=0x7ffff0073370) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=<optimized out>, abstime=0x7fffd3ffe4e0, clockid=0, expected=0, futex_word=0x7ffff0073370) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff0073370, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffd3ffe4e0, private=<optimized out>) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c9c970 in do_futex_wait (sem=sem@entry=0x7ffff0073370, abstime=abstime@entry=0x7fffd3ffe4e0, clockid=0) at ./nptl/sem_waitcommon.c:111
+        err = <optimized out>
+#4  0x00007ffff7c9ca13 in __new_sem_wait_slow64 (sem=0x7ffff0073370, abstime=0x7fffd3ffe4e0, clockid=0) at ./nptl/sem_waitcommon.c:183
+        _buffer = {__routine = 0x7ffff7c9c940 <__sem_wait_cleanup>, __arg = 0x7ffff0073370, __canceltype = 320, __prev = 0x0}
+        err = <optimized out>
+        d = 4294967296
+#5  0x00007ffff59ed7df in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5a12c6b in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff5c5d1c2 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff5de0944 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#9  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349925456, 6392915426149589556, 140736750155328, 11, 140737350551440, 140737349925808, -6392976998158638540, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#10 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 10 (Thread 0x7fffe89fc640 (LWP 28499) "test_allsmi_con"):
+#0  __futex_abstimed_wait_common64 (private=<optimized out>, cancel=true, abstime=0x7fffe89fb4e0, op=393, expected=0, futex_word=0x7ffff0073370) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=<optimized out>, abstime=0x7fffe89fb4e0, clockid=0, expected=0, futex_word=0x7ffff0073370) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff0073370, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffe89fb4e0, private=<optimized out>) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c9c970 in do_futex_wait (sem=sem@entry=0x7ffff0073370, abstime=abstime@entry=0x7fffe89fb4e0, clockid=0) at ./nptl/sem_waitcommon.c:111
+        err = <optimized out>
+#4  0x00007ffff7c9ca13 in __new_sem_wait_slow64 (sem=0x7ffff0073370, abstime=0x7fffe89fb4e0, clockid=0) at ./nptl/sem_waitcommon.c:183
+        _buffer = {__routine = 0x7ffff7c9c940 <__sem_wait_cleanup>, __arg = 0x7ffff0073370, __canceltype = 321, __prev = 0x0}
+        err = <optimized out>
+        d = 0
+#5  0x00007ffff59ed7df in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5a12c6b in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff5c5d1c2 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff5de0944 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#9  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349925456, 6392915426149589556, 140737096173120, 11, 140737350551440, 140737349925808, -6392890964058119628, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#10 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 9 (Thread 0x7fffe91fd640 (LWP 28498) "test_allsmi_con"):
+#0  0x00007ffff7ce57b8 in __GI___clock_nanosleep (clock_id=clock_id@entry=0, flags=flags@entry=0, req=0x7fffe91fc270, rem=0x7fffe91fc270) at ../sysdeps/unix/sysv/linux/clock_nanosleep.c:78
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        r = <optimized out>
+#1  0x00007ffff7cea637 in __GI___nanosleep (req=<optimized out>, rem=<optimized out>) at ../sysdeps/unix/sysv/linux/nanosleep.c:25
+        ret = <optimized out>
+#2  0x00007ffff5cb2125 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#3  0x00007ffff5cba3e2 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#4  0x00007ffff5a131b8 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#5  0x00007ffff5cb7079 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5cda685 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff5cda709 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349924576, 6392915426149589556, 140737104565824, 11, 140737350551440, 140737349924928, -6392894258834906572, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 8 (Thread 0x7fffe99fe640 (LWP 28497) "test_allsmi_con"):
+#0  __futex_abstimed_wait_common64 (private=0, cancel=true, abstime=0x7fffe99fdbc0, op=393, expected=0, futex_word=0x7ffff0072ad8) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=0, abstime=0x7fffe99fdbc0, clockid=0, expected=0, futex_word=0x7ffff0072ad8) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff0072ad8, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7fffe99fdbc0, private=private@entry=0) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c93e5b in __pthread_cond_wait_common (abstime=0x7fffe99fdbc0, clockid=0, mutex=0x7ffff0072a88, cond=0x7ffff0072ab0) at ./nptl/pthread_cond_wait.c:503
+        spin = 0
+        buffer = {__routine = 0x7ffff7c936e0 <__condvar_cleanup_waiting>, __arg = 0x7fffe99fdb50, __canceltype = 0, __prev = 0x0}
+        cbuffer = {wseq = 442, cond = 0x7ffff0072ab0, mutex = 0x7ffff0072a88, private = 0}
+        err = <optimized out>
+        g = 0
+        flags = <optimized out>
+        g1_start = <optimized out>
+        maxspin = 0
+        signals = <optimized out>
+        result = 0
+        wseq = 442
+        seq = 221
+        private = 0
+        maxspin = <optimized out>
+        err = <optimized out>
+        result = <optimized out>
+        wseq = <optimized out>
+        g = <optimized out>
+        seq = <optimized out>
+        flags = <optimized out>
+        private = <optimized out>
+        signals = <optimized out>
+        done = <optimized out>
+        g1_start = <optimized out>
+        spin = <optimized out>
+        buffer = <optimized out>
+        cbuffer = <optimized out>
+        s = <optimized out>
+#4  ___pthread_cond_timedwait64 (cond=0x7ffff0072ab0, mutex=0x7ffff0072a88, abstime=0x7fffe99fdbc0) at ./nptl/pthread_cond_wait.c:652
+        flags = <optimized out>
+        clockid = 0
+#5  0x00007ffff5caa469 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5caa58e in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff5de0944 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349925344, 6392915426149589556, 140737112958528, 11, 140737350551440, 140737349925696, -6392893159860149708, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 7 (Thread 0x7fffea1ff640 (LWP 28496) "MainIOContext"):
+#0  __futex_abstimed_wait_common64 (private=0, cancel=true, abstime=0x7fffea1fe780, op=137, expected=0, futex_word=0x55555599c7d8) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=0, abstime=0x7fffea1fe780, clockid=0, expected=0, futex_word=0x55555599c7d8) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 137
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x55555599c7d8, expected=expected@entry=0, clockid=clockid@entry=1, abstime=abstime@entry=0x7fffea1fe780, private=private@entry=0) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c93e5b in __pthread_cond_wait_common (abstime=0x7fffea1fe780, clockid=1, mutex=0x55555599c778, cond=0x55555599c7b0) at ./nptl/pthread_cond_wait.c:503
+        spin = 0
+        buffer = {__routine = 0x7ffff7c936e0 <__condvar_cleanup_waiting>, __arg = 0x7fffea1fe6f0, __canceltype = 0, __prev = 0x0}
+        cbuffer = {wseq = 8, cond = 0x55555599c7b0, mutex = 0x55555599c778, private = 0}
+        err = <optimized out>
+        g = 0
+        flags = <optimized out>
+        g1_start = <optimized out>
+        maxspin = 0
+        signals = <optimized out>
+        result = 0
+        wseq = 8
+        seq = 4
+        private = 0
+        maxspin = <optimized out>
+        err = <optimized out>
+        result = <optimized out>
+        wseq = <optimized out>
+        g = <optimized out>
+        seq = <optimized out>
+        flags = <optimized out>
+        private = <optimized out>
+        signals = <optimized out>
+        done = <optimized out>
+        g1_start = <optimized out>
+        spin = <optimized out>
+        buffer = <optimized out>
+        cbuffer = <optimized out>
+        s = <optimized out>
+#4  ___pthread_cond_timedwait64 (cond=0x55555599c7b0, mutex=0x55555599c778, abstime=0x7fffea1fe780) at ./nptl/pthread_cond_wait.c:652
+        flags = <optimized out>
+        clockid = 1
+#5  0x00007ffff5d65da8 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5d674b3 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff5d67deb in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff5d68055 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#9  0x00007ffff5de0944 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#10 0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349926048, 6392915426149589556, 140737121351232, 11, 140737350551440, 140737349926400, -6392887662838881740, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#11 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 6 (Thread 0x7ffff4ffe640 (LWP 28495) "dcgm_ipc"):
+#0  0x00007ffff7d25ebe in epoll_wait (epfd=16, events=0x7ffff0071260, maxevents=32, timeout=-1) at ../sysdeps/unix/sysv/linux/epoll_wait.c:30
+        sc_ret = -4
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+#1  0x00007ffff5d09394 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#2  0x00007ffff5cfeed9 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#3  0x00007ffff5c4bc0c in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#4  0x00007ffff5cda685 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#5  0x00007ffff5cda709 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349925584, 6392915426149589556, 140737303799360, 25, 140737350551440, 140737349925936, -6392900031807823308, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#7  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 5 (Thread 0x7ffff57ff640 (LWP 28494) "test_allsmi_con"):
+#0  __futex_abstimed_wait_common64 (private=<optimized out>, cancel=true, abstime=0x7ffff57fe4e0, op=393, expected=0, futex_word=0x7ffff00705b8) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=<optimized out>, abstime=0x7ffff57fe4e0, clockid=0, expected=0, futex_word=0x7ffff00705b8) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 393
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff00705b8, expected=expected@entry=0, clockid=clockid@entry=0, abstime=abstime@entry=0x7ffff57fe4e0, private=<optimized out>) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c9c970 in do_futex_wait (sem=sem@entry=0x7ffff00705b8, abstime=abstime@entry=0x7ffff57fe4e0, clockid=0) at ./nptl/sem_waitcommon.c:111
+        err = <optimized out>
+#4  0x00007ffff7c9ca13 in __new_sem_wait_slow64 (sem=0x7ffff00705b8, abstime=0x7ffff57fe4e0, clockid=0) at ./nptl/sem_waitcommon.c:183
+        _buffer = {__routine = 0x7ffff7c9c940 <__sem_wait_cleanup>, __arg = 0x7ffff00705b8, __canceltype = 0, __prev = 0x0}
+        err = <optimized out>
+        d = 0
+#5  0x00007ffff59ed7df in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#6  0x00007ffff5a12c6b in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#7  0x00007ffff5c5d1c2 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#8  0x00007ffff5de0944 in ?? () from /lib/x86_64-linux-gnu/libdcgm.so.4
+No symbol table info available.
+#9  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349926368, 6392915426149589556, 140737312192064, 25, 140737350551440, 140737349926720, -6392903330879577548, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#10 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 4 (Thread 0x7ffff61fe640 (LWP 28493) "allsmi-nvml-xid"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x000055555589f116 in ?? ()
+No symbol table info available.
+#2  0x00005555557e94d9 in ?? ()
+No symbol table info available.
+#3  0x000055555578ddf5 in ?? ()
+No symbol table info available.
+#4  0x000055555578db70 in ?? ()
+No symbol table info available.
+#5  0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#6  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349929792, 6392915426149589556, 140737322673728, 17, 140737350551440, 140737349930144, -6392896458395033036, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#7  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 3 (Thread 0x7ffff69ff640 (LWP 28492) "cuda00001800007"):
+#0  0x00007ffff7d18d1f in __GI___poll (fds=0x7ffff0000dc0, nfds=2, timeout=-1) at ../sysdeps/unix/sysv/linux/poll.c:29
+        sc_ret = -516
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+#1  0x00007fffea519c77 in ?? () from /lib/x86_64-linux-gnu/libcuda.so.1
+No symbol table info available.
+#2  0x00007fffea6068c7 in ?? () from /lib/x86_64-linux-gnu/libcuda.so.1
+No symbol table info available.
+#3  0x00007fffea506963 in ?? () from /lib/x86_64-linux-gnu/libcuda.so.1
+No symbol table info available.
+#4  0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737349869584, 6392915426149589556, 140737331066432, 2, 140737350551440, 140737349869936, -6392895359420276172, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#5  0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 2 (Thread 0x7ffff7bff640 (LWP 28475) "test_allsmi_con"):
+#0  __futex_abstimed_wait_common64 (private=128, cancel=true, abstime=0x0, op=265, expected=28511, futex_word=0x7ffff43ff910) at ./nptl/futex-internal.c:57
+        sc_cancel_oldtype = 0
+        sc_ret = <optimized out>
+        resultvar = <optimized out>
+        __arg6 = <optimized out>
+        __arg5 = <optimized out>
+        __arg4 = <optimized out>
+        __arg3 = <optimized out>
+        __arg2 = <optimized out>
+        __arg1 = <optimized out>
+        _a6 = <optimized out>
+        _a5 = <optimized out>
+        _a4 = <optimized out>
+        _a3 = <optimized out>
+        _a2 = <optimized out>
+        _a1 = <optimized out>
+#1  __futex_abstimed_wait_common (cancel=true, private=128, abstime=0x0, clockid=0, expected=28511, futex_word=0x7ffff43ff910) at ./nptl/futex-internal.c:87
+        err = <optimized out>
+        clockbit = 256
+        op = 265
+        err = <optimized out>
+        clockbit = <optimized out>
+        op = <optimized out>
+#2  __GI___futex_abstimed_wait_cancelable64 (futex_word=futex_word@entry=0x7ffff43ff910, expected=28511, clockid=clockid@entry=0, abstime=abstime@entry=0x0, private=private@entry=128) at ./nptl/futex-internal.c:139
+No locals.
+#3  0x00007ffff7c965e4 in __pthread_clockjoin_ex (threadid=140737291220544, thread_return=0x0, clockid=0, abstime=0x0, block=<optimized out>) at ./nptl/pthread_join_common.c:105
+        ret = <optimized out>
+        _buffer = {__routine = 0x7ffff7c96490 <cleanup>, __arg = 0x7ffff43ffc68, __canceltype = 2097152, __prev = 0x0}
+        tid = <optimized out>
+        pd = 0x7ffff43ff640
+        self = <optimized out>
+        result = 0
+        pd_result = <optimized out>
+#4  0x00005555558c8091 in ?? ()
+No symbol table info available.
+#5  0x00005555556bec48 in ?? ()
+No symbol table info available.
+#6  0x00005555558ea6eb in ?? ()
+No symbol table info available.
+#7  0x00005555558e6b22 in ?? ()
+No symbol table info available.
+#8  0x00005555558e634c in ?? ()
+No symbol table info available.
+#9  0x00005555558ff0dc in ?? ()
+No symbol table info available.
+#10 0x00005555558c5a7a in ?? ()
+No symbol table info available.
+#11 0x00007ffff7c94a83 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:442
+        ret = <optimized out>
+        pd = <optimized out>
+        out = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {140737488343184, 6392915426149589556, 140737349940800, 2, 140737350551440, 140737488343536, -6392897283565624780, -6392897982433271244}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#12 0x00007ffff7d268e0 in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:81
+No locals.
+
+Thread 1 (Thread 0x7ffff7ea6d40 (LWP 28472) "library_api_tes"):
+#0  syscall () at ../sysdeps/unix/sysv/linux/x86_64/syscall.S:38
+No locals.
+#1  0x00005555558caf16 in ?? ()
+No symbol table info available.
+#2  0x00005555558febff in ?? ()
+No symbol table info available.
+#3  0x00005555558fda23 in ?? ()
+No symbol table info available.
+#4  0x00005555558f5e9c in ?? ()
+No symbol table info available.
+#5  0x00005555556bba29 in ?? ()
+No symbol table info available.
+#6  0x00005555556baf13 in ?? ()
+No symbol table info available.
+#7  0x00005555556bfbfa in ?? ()
+No symbol table info available.
+#8  0x00007ffff7c29d90 in __libc_start_call_main (main=main@entry=0x5555556bf790, argc=argc@entry=3, argv=argv@entry=0x7fffffffeb08) at ../sysdeps/nptl/libc_start_call_main.h:58
+        self = <optimized out>
+        result = <optimized out>
+        unwind_buf = {cancel_jmp_buf = {{jmp_buf = {0, 6392915426149720628, 140737488349960, 93824993720208, 93824996449376, 140737354125376, -6392915425452957132, -6392897946655202764}, mask_was_saved = 0}}, priv = {pad = {0x0, 0x0, 0x0, 0x0}, data = {prev = 0x0, cleanup = 0x0, canceltype = 0}}}
+        not_first_call = <optimized out>
+#9  0x00007ffff7c29e40 in __libc_start_main_impl (main=0x5555556bf790, argc=3, argv=0x7fffffffeb08, init=<optimized out>, fini=<optimized out>, rtld_fini=<optimized out>, stack_end=0x7fffffffeaf8) at ../csu/libc-start.c:392
+No locals.
+#10 0x00005555556ba295 in ?? ()
+No symbol table info available.
+
+=== gdb concurrent regression attempt 02/05 ===
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+running 1 test
+[Detaching after vfork from child process 28555]
+[Detaching after vfork from child process 28556]
+[Detaching after vfork from child process 28557]
+[Detaching after vfork from child process 28558]
+[Detaching after vfork from child process 28559]
+[Detaching after vfork from child process 28560]
+[Detaching after vfork from child process 28561]
+[Detaching after vfork from child process 28562]
+[Detaching after vfork from child process 28563]
+[Detaching after vfork from child process 28564]
+[Detaching after vfork from child process 28565]
+[Detaching after vfork from child process 28566]
+[Detaching after vfork from child process 28567]
+[Detaching after vfork from child process 28568]
+[Detaching after vfork from child process 28569]
+[Detaching after vfork from child process 28570]
+ibwarn: [28551] get_abi_version: can't read ABI version from /sys/class/infiniband_mad/abi_version (No such file or directory): is ib_umad module loaded?
+test test_allsmi_concurrent_create_and_drop_on_gpu ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 17.23s
+
+[Inferior 1 (process 28551) exited normally]
+
+=== gdb concurrent regression attempt 03/05 ===
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+running 1 test
+[Detaching after vfork from child process 28634]
+[Detaching after vfork from child process 28635]
+[Detaching after vfork from child process 28636]
+[Detaching after vfork from child process 28637]
+[Detaching after vfork from child process 28638]
+[Detaching after vfork from child process 28639]
+[Detaching after vfork from child process 28640]
+[Detaching after vfork from child process 28641]
+[Detaching after vfork from child process 28642]
+[Detaching after vfork from child process 28643]
+[Detaching after vfork from child process 28644]
+[Detaching after vfork from child process 28645]
+[Detaching after vfork from child process 28646]
+[Detaching after vfork from child process 28647]
+[Detaching after vfork from child process 28648]
+[Detaching after vfork from child process 28649]
+ibwarn: [28630] get_abi_version: can't read ABI version from /sys/class/infiniband_mad/abi_version (No such file or directory): is ib_umad module loaded?
+test test_allsmi_concurrent_create_and_drop_on_gpu ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 16.79s
+
+[Inferior 1 (process 28630) exited normally]
+
+=== gdb concurrent regression attempt 04/05 ===
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+running 1 test
+[Detaching after vfork from child process 28715]
+[Detaching after vfork from child process 28716]
+[Detaching after vfork from child process 28717]
+[Detaching after vfork from child process 28718]
+[Detaching after vfork from child process 28719]
+[Detaching after vfork from child process 28720]
+[Detaching after vfork from child process 28721]
+[Detaching after vfork from child process 28722]
+[Detaching after vfork from child process 28723]
+[Detaching after vfork from child process 28724]
+[Detaching after vfork from child process 28725]
+[Detaching after vfork from child process 28726]
+[Detaching after vfork from child process 28727]
+[Detaching after vfork from child process 28728]
+[Detaching after vfork from child process 28729]
+[Detaching after vfork from child process 28730]
+ibwarn: [28711] get_abi_version: can't read ABI version from /sys/class/infiniband_mad/abi_version (No such file or directory): is ib_umad module loaded?
+test test_allsmi_concurrent_create_and_drop_on_gpu ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 16.83s
+
+[Inferior 1 (process 28711) exited normally]
+
+=== gdb concurrent regression attempt 05/05 ===
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+running 1 test
+[Detaching after vfork from child process 28794]
+[Detaching after vfork from child process 28795]
+[Detaching after vfork from child process 28796]
+[Detaching after vfork from child process 28797]
+[Detaching after vfork from child process 28798]
+[Detaching after vfork from child process 28799]
+[Detaching after vfork from child process 28800]
+[Detaching after vfork from child process 28801]
+[Detaching after vfork from child process 28802]
+[Detaching after vfork from child process 28803]
+[Detaching after vfork from child process 28804]
+[Detaching after vfork from child process 28805]
+[Detaching after vfork from child process 28806]
+[Detaching after vfork from child process 28807]
+[Detaching after vfork from child process 28808]
+[Detaching after vfork from child process 28809]
+ibwarn: [28790] get_abi_version: can't read ABI version from /sys/class/infiniband_mad/abi_version (No such file or directory): is ib_umad module loaded?
+test test_allsmi_concurrent_create_and_drop_on_gpu ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 17.26s
+
+[Inferior 1 (process 28790) exited normally]

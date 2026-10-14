@@ -1,0 +1,44 @@
+=== version ===
+all-smi 0.27.1
+NVIDIA H100 PCIe, 570.195.03
+
+dcgmi  version: 4.7.0
+
+=== doctor --only nvidia.gpm,nvidia.dcgm ===
+all-smi doctor — 0.27.1
+Running 4 checks…
+
+PASS nvidia.dcgm.hostengine           host engine reachable: 1 GPU found (Active).
+PASS nvidia.dcgm.library              dcgmi at /usr/bin/dcgmi; libdcgm present
+PASS nvidia.dcgm.prof_module          dcgmi dmon -e 1002 succeeded (profiling module usable)
+PASS nvidia.gpm.supported             GPM activity metrics sampled on 1 of 1 device(s) that claim support (NVIDIA H100 PCIe (GPU-9be83414-95bf-8a92-75d4-4d7825d4de77))
+
+Summary: 4 pass, 0 warn, 0 fail, 0 skipped
+Exit code: 0
+=== doctor --only amd ===
+all-smi doctor — 0.27.1
+Running 8 checks…
+
+SKIP amd.adl.adapters                 ADL is Windows-only
+SKIP amd.adl.library                  ADL is Windows-only
+SKIP amd.adl.per_adapter              ADL is Windows-only
+SKIP amd.adl.sensors                  ADL is Windows-only
+PASS amd.build.target_env             glibc Linux build — AMD runtime loader compiled in; the `amd` cargo feature does not gate it
+PASS amd.dri.perms                    3 node(s): card1, renderD128, card0
+PASS amd.libamdgpu_top.abi            loaded /home/<user>/all-smi/target/release/liball_smi_amd.so (plugin 0.27.1, ABI v1, libamdgpu_top 0.11.5)
+SKIP amd.rocm.version                 ROCm not detected (neither /opt/rocm nor rocminfo)
+
+Summary: 3 pass, 0 warn, 0 fail, 5 skipped
+Exit code: 0
+=== cargo test -p all-smi-amd-plugin --release ===
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+=== live scrapes ===
+--- default: all_smi_up / source label counts / power
+all_smi_up{instance="shadecloud", hostname="shadecloud"} 1
+     20 source="gpm"
+all_smi_gpu_power_consumption_watts{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-9be83414-95bf-8a92-75d4-4d7825d4de77", gpu_index="0"} 47.113
+--- dcgm-fallback: all_smi_up / source label counts / power
+all_smi_up{instance="shadecloud", hostname="shadecloud"} 1
+     13 source="dcgm"
+all_smi_gpu_power_consumption_watts{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-9be83414-95bf-8a92-75d4-4d7825d4de77", gpu_index="0"} 47.108
+SMOKE_DONE

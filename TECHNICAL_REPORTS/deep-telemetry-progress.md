@@ -147,7 +147,7 @@ Complete (merged via PR #4).
 ### Changes
 
 - Workspace crate `crates/all-smi-dcgm-plugin` (`liball_smi_dcgm.so`); ABI + loader mirroring AMD; vendored bindgen bindings
-- Plugin dlopens `libdcgm.so.4`, connects to hostengine (embedded fallback), watches PROF_*/XID/remap/throttle
+- Plugin dlopens `libdcgm.so.4`, connects to the external hostengine, watches PROF_*/XID/remap/throttle. Embedded-hostengine startup was removed after GPU stress exposed unsafe concurrent in-process NVML workers; when no hostengine is reachable, DCGM enrichment degrades cleanly.
 - `nvidia.rs` merge: fill only `None` GPM fields from DCGM; `Source: <field>=dcgm`
 - Release workflow builds/packages the DCGM `.so` on Linux glibc
 
@@ -269,3 +269,75 @@ Published `v0.27.0-metrum.1` `all-smi-linux-x86_64.tar.gz` (sha256 OK) on the sa
 Single MI325X in `tor1` (`gpu-mi325x1-256gb`, image `gpu-amd-base`, droplet `607320438`). The published glibc tarball was copied to `/opt/all-smi-rel` because the loader refuses a plugin under world-writable `/tmp`.
 
 Same-moment readings: hwmon `power1_input` 133000000 µW, `rocm-smi` 134.0 W, `all_smi_gpu_power_consumption_watts` 133. Device id `0x74b9`, ASIC `GFX940/MI300`, SKU `M3250101`. `doctor --only amd` loaded plugin 0.27.0. `amd.rocm.version` still skipped. Droplet deleted after the check.
+
+## Release v0.27.1-metrum.1
+
+Tagged on fork `main` after merging `lablup/main` through `ddfe94c` (upstream tag `v0.27.1`). Merged by Metrum AI.
+
+### Changes since v0.27.0-metrum.1
+
+- Sync upstream v0.27.1: display-only `--hide-storage` for local and view modes (#455), remote host tab identity and chassis energy/cost fixes, bounded remote HTTP buffering, cancelled timed-out remote fetches (#454)
+- Merge fix: initialize fork deep-telemetry `GpuInfo` fields and per-process `enc_util`/`dec_util`/`gpu_mem_util` on the new upstream test fixtures in `src/view/event_handler.rs` and `src/view/frame_renderer.rs`
+- Fork: DCGM plugin crate version moves from 0.27.0 to 0.27.1 with the main binary
+- Fork: `AGENTS.md` (Shadeform NVIDIA validation required before work is done) and `scripts/dev/remote-release-smoke.sh`
+
+Crate version is `0.27.1`; tag is `v0.27.1-metrum.1`.
+
+### Pre-release validation (Shadeform H100)
+
+Shadeform H100 PCIe (Hyperstack, driver 570.195.03, CUDA 12.8, DCGM 4.7.0, rustc 1.99.0). Instance `fe1018e3-ef7e-483c-a886-c92a735e4ed6`, deleted after the run. Log: `TECHNICAL_REPORTS/runs/v0.27.1-metrum.1-h100-smoke/`.
+
+- gengar (no GPU): `cargo build --release --workspace --exclude all-smi-amd-plugin` (no `libdrm-dev` on gengar); `cargo test -p all-smi` all targets pass with the 2 sudo tests skipped (no `sudo` binary)
+- Release build on the H100: `all-smi 0.27.1`, `liball_smi_amd.so`, `liball_smi_dcgm.so`
+- `cargo test --release -- --test-threads=1`: all targets pass (lib 1885, bin 2082, `library_api_test` 25)
+- `ALL_SMI_LIVE_GPU=1` `gpm_parity`: 2 passed
+- `doctor --only nvidia.gpm,nvidia.dcgm`: 4 pass; `doctor --only amd`: plugin 0.27.1 loaded, 3 pass, 5 skip
+- `cargo test -p all-smi-amd-plugin --release`: 12 passed
+- Default API scrape: `source="gpm"` on 20 series; power 48.476 W idle
+- `ALL_SMI_NVIDIA_DISABLE_GPM=1` plus the DCGM plugin: `source="dcgm"` on 13 series
+
+### Concurrent NVML/GPM crash fix (follow-up to v0.27.1-metrum.1)
+
+The parallel `library_api_test` SIGSEGV was in NVML, not Rust. Each `NvidiaGpuReader` originally owned an `nvml_wrapper::Nvml`; `Nvml::drop` calls the process-global `nvmlShutdown`, so destroying one `AllSmi` could invalidate NVML state and cached GPM sample handles used by another. The original `GpmState` mutex was reader-local, but `nvml-wrapper` documents GPM sample operations as not thread-safe, so independent instances could also overlap allocate/sample/free operations.
+
+GPU investigation found a second in-process caller that ordinary reader locks could not cover. When the system DCGM hostengine was unavailable, the Metrum DCGM plugin started an embedded hostengine in the same process. Its `NvmlTaskRunner` worker thread used NVML outside the main crate's locks. On the H100 / driver 580.126.09, the library stress test repeatedly faulted inside `libnvidia-ml.so`; the kernel log showed the `NvmlTaskRunner` SIGSEGV as well as test-thread SIGSEGVs. This reproduced with the embedded fallback, while the targeted test passed with the plugin disabled or with an external hostengine. A shared handle and GPM-only mutex were therefore insufficient.
+
+The fix has three parts:
+
+- Keep one successfully initialized NVML handle in a process-lifetime singleton. Initialization failures are not cached, and no reader can call `nvmlShutdown` on the shared handle.
+- Serialize complete NVML reader/diagnostic/XID operations and GPM sample allocation, use, and freeing with process-wide locks. Add a real-GPU-skipping concurrent create/drop test (12 threads × 4 `AllSmi` instances).
+- Remove embedded DCGM hostengine startup. The plugin connects to the external `nvidia-dcgm` hostengine only; a failed connection is bounded to 100 ms and DCGM enrichment remains unavailable while NVML/GPM collection continues. This keeps DCGM's NVML workers in the separate hostengine process, outside the GPM process. The Shadeform setup now reliably enables the external service, and the release smoke fails fast if it is inactive.
+
+#### Validation
+
+- Gengar, no GPU: `cargo fmt --check`; workspace clippy with `-D warnings` (excluding the AMD plugin requiring host libdrm); `cargo test -p all-smi -- --skip test_ensure_sudo_permissions` (2,080 passed, 2 ignored, 2 filtered; all integration and doctest targets pass); `cargo build --release --workspace --exclude all-smi-amd-plugin`. `all-smi doctor --only nvidia.gpm,nvidia.dcgm` produced 4 SKIP, 0 WARN/FAIL.
+- Shadeform H100 PCIe, driver 580.126.09 / CUDA 13.0, DCGM 4.7.0, `rustc 1.99.0`: `cargo build --release --workspace` passed including `liball_smi_amd.so` and `liball_smi_dcgm.so`. Full `cargo test --release -- --test-threads=1` passed (2,082 library tests, 2 ignored, all integration and doctest targets passed).
+- The final default-parallel `library_api_test` passed 10/10 with DCGM hostengine inactive and the plugin present, including the new concurrent GPU create/drop regression on every run (26/26 tests each). It also passed 26/26 with the external hostengine active. The prior embedded-hostengine build crashed, confirming why embedded startup was removed.
+- With the external hostengine active, `doctor --only nvidia.gpm,nvidia.dcgm` passed 4/4; AMD doctor was 3 PASS / 5 SKIP and AMD plugin tests were 12/12. The default live scrape emitted 20 GPM-sourced series; `ALL_SMI_NVIDIA_DISABLE_GPM=1` emitted 13 DCGM-sourced series. `nvidia-smi` remained responsive. These full smoke checks were repeated after the setup/smoke-script hardening on a separate H100 / driver 570.195.03: workspace release build passed, default-parallel `library_api_test` passed 26/26, and the now-strict release smoke completed successfully.
+- The first driver 570.195.03 H100 recorded one `test_allsmi_con` SIGSEGV in `libnvidia-ml.so` at 04:29 UTC before deletion. The driver 580.126.09 box's final dmesg capture still contains three earlier investigative `libnvidia-ml.so` SIGSEGV lines (the incomplete embedded-hostengine builds at 04:54, 05:04, and 05:05 UTC); no new segfault appeared during final validation through 05:39 UTC, and no NVRM assert or RCU stall was logged. The final driver 570.195.03 test box showed no segfault, NVRM assert, or RCU stall through 05:51 UTC. The failed exploratory runs are retained rather than erased.
+
+#### Shadeform lifecycle and cost
+
+- H100 instance `2c951979-2f7a-48ac-b51f-df3112925486` (driver 570.195.03) was deleted and confirmed cleared at 04:39 UTC.
+- H100 instance `c4d65db5-fc12-4365-9271-72b7004710eb` (driver 580.126.09) was created at 04:40:41 UTC, used for the main investigation/validation, and deleted at 05:39 UTC.
+- H100 instance `579049a7-1d4d-4730-93bf-8e0af1b35ab8` (driver 570.195.03) was created at 05:40:24 UTC, used to validate the hardened external-hostengine setup and strict smoke script, and deleted at 05:51 UTC. All three deletion logs say `deleted`; final status checks reported no local active instance.
+- Shadeform listed $2.73/hour for the first two instances and $2.50/hour for the third. Using ~20, 58, and 11 minutes respectively, total GPU compute is estimated at about **$4.02** (provider billing granularity may vary).
+
+Redacted command logs and crash-vs-final evidence are in `TECHNICAL_REPORTS/runs/v0.27.1-metrum.1-nvml-race/`.
+
+### DCGM reconnect backoff follow-up
+
+`src/device/readers/dcgm.rs` now tracks a per-plugin host-side `CreateSessionBackoff`: failed `create_session` calls schedule retries after 1, 2, 4, 8, 16, 32, then 60 seconds repeatedly; successful session creation clears the failure count/deadline. The monotonic deadline logic is tested with injected `Instant` values, and a pure schedule test checks the cap without loading DCGM.
+
+`GPM_API_LOCK` remains in `src/device/readers/nvidia_gpm.rs`. The in-crate `collect`, `free_all`, and doctor `probe_two_sample` paths are reached under `nvidia_nvml::API_LOCK`, but these helpers and `GpmState` remain public and downstream callers can invoke them with their own `Nvml` handle outside that lock. The GPM mutex therefore still protects those direct callers. In-crate nesting is consistently `API_LOCK` → `GPM_API_LOCK`; the GPM code never acquires the NVML lock, so it introduces no reverse lock order.
+
+#### Follow-up validation
+
+- Gengar: `cargo fmt --check`; `cargo clippy -p all-smi --all-targets -- -D warnings`; `cargo clippy -p all-smi-dcgm-plugin --all-targets -- -D warnings`; `cargo test -p all-smi -- --skip test_ensure_sudo_permissions` (2,082 passed, 2 ignored, 2 filtered; all integration and doctests pass); `cargo build --release --workspace --exclude all-smi-amd-plugin`.
+- Shadeform H100 PCIe, driver 580.126.09 / CUDA 13.0 / DCGM 4.7.0 / rustc 1.99.0. Full `cargo test --release -- --test-threads=1` passed (2,084 passed, 2 ignored; all integration and doctest targets pass). `cargo build --release --workspace` included both plugins. Default-parallel `library_api_test` passed 10/10 (26/26 tests per run).
+- `remote-release-smoke.sh` passed with external `nvidia-dcgm.service`: NVIDIA doctor 4/4; AMD doctor 3 pass / 5 skip; AMD tests 12/12; default scrape 20 `source="gpm"` series; fallback scrape 13 `source="dcgm"` series.
+- Backoff runtime test stopped the external hostengine while a single `all-smi api` process ran for 30 polls. Trace output shows 5 `create_session` attempts and 25 deferred retries—not one attempt per poll. After restarting the hostengine, `source="dcgm"` returned on recovery poll 2 (within about 2 seconds); the session-created trace confirms the backoff reset. The delay trace followed 1/2/4/8/16 seconds before recovery. `nvidia-smi` remained responsive; baseline and final dmesg contained no segfault, NVRM assertion, or RCU-stall matches.
+
+#### Follow-up Shadeform instance and cost
+
+H100 instance `06f2a92e-9d9b-4d6f-aed1-7b1ac454af60` (driver 580.126.09, $2.73/hour) was created at 15:31:00 UTC, deleted after validation at approximately 15:55 UTC, and confirmed absent by the final status check. Estimated rental cost was **about $1.10**; billing granularity may vary. Redacted follow-up logs are in `TECHNICAL_REPORTS/runs/v0.27.1-metrum.1-followups/`.

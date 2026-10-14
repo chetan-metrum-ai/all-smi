@@ -1,0 +1,17 @@
+creating H100 H100 in hyperstack/montreal-canada-2 os=ubuntu22.04_cuda12.8_shade_os hourly_price_cents=250.0 hourly_price_usd=2.5 ssh_key_id=9980a8c6-a322-4db9-a340-b624c5183e3d
+created id=579049a7-1d4d-4730-93bf-8e0af1b35ab8; polling until active...
+  status=creating ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending ip=None
+  status=pending ip=None
+  status=pending ip=None
+  status=pending ip=None
+  status=active ip=[REDACTED_IP]
+instance active: {"id": "579049a7-1d4d-4730-93bf-8e0af1b35ab8", "ip": "[REDACTED_IP]", "ssh_user": "shadeform", "ssh_port": 22, "shade_instance_type": "H100", "gpu_type": "H100", "cloud": "hyperstack", "region": "montreal-canada-2", "os": "ubuntu22.04_cuda12.8_shade_os", "hourly_price": 250, "hourly_price_usd": 2.5, "created_at": "2026-10-14T05:40:24.210548+00:00", "status": "active"}

@@ -33,10 +33,10 @@ sudo apt-get install -y datacenter-gpu-manager-4-cuda13 \
   || sudo apt-get install -y datacenter-gpu-manager \
   || echo "WARN: could not install datacenter-gpu-manager via apt"
 
-if systemctl list-unit-files | grep -q nvidia-dcgm; then
-  sudo systemctl enable --now nvidia-dcgm
-elif systemctl list-unit-files | grep -q '^dcgm'; then
-  sudo systemctl enable --now dcgm || true
+if systemctl cat nvidia-dcgm.service >/dev/null 2>&1; then
+  sudo systemctl enable --now nvidia-dcgm.service
+elif systemctl cat dcgm.service >/dev/null 2>&1; then
+  sudo systemctl enable --now dcgm.service
 fi
 
 if [[ ! -d "${HOME}/venv" ]]; then

@@ -113,7 +113,7 @@ fn check_nvml_loadable(_ctx: &CheckCtx) -> CheckResult {
     // Nvml::init(). Attempting the init is the cheapest authoritative test:
     // if the library is missing or the driver isn't usable, init() fails
     // with a discriminator error.
-    match nvml_wrapper::Nvml::init() {
+    match crate::device::readers::nvidia_nvml::shared_nvml() {
         Ok(_) => CheckResult::Pass("NVML initialised".to_string()),
         Err(e) => {
             let msg = e.to_string();
@@ -325,63 +325,59 @@ fn check_gpm_supported(_ctx: &CheckCtx) -> CheckResult {
     if !has_nvidia() {
         return CheckResult::Skip(nvidia_absent_reason());
     }
-    match nvml_wrapper::Nvml::init() {
-        Ok(nvml) => {
-            let count = match nvml.device_count() {
-                Ok(c) => c,
-                Err(e) => {
-                    return CheckResult::Skip(format!("NVML device_count failed: {e}"));
-                }
-            };
-            if count == 0 {
-                return CheckResult::Skip("NVML reports zero devices".to_string());
-            }
-
-            // Gap between the two GPM samples. Doctor runs once, so we must
-            // take both samples here; the live collector caches across polls.
-            const GPM_PROBE_GAP: Duration = Duration::from_millis(200);
-
-            let mut probed = 0u32;
-            let mut claimed: Vec<String> = Vec::new();
-            let mut activity_ok: Vec<String> = Vec::new();
-            let mut claimed_but_empty: Vec<String> = Vec::new();
-
-            for i in 0..count {
-                let Ok(device) = nvml.device_by_index(i) else {
-                    continue;
-                };
-                probed += 1;
-                if !device.gpm_support().unwrap_or(false) {
-                    continue;
-                }
-                let label = device_label(&device, i);
-                claimed.push(label.clone());
-
-                match crate::device::readers::nvidia_gpm::probe_two_sample(
-                    &nvml,
-                    &device,
-                    GPM_PROBE_GAP,
-                ) {
-                    Some(metrics)
-                        if crate::device::readers::nvidia_gpm::has_activity_metrics(&metrics) =>
-                    {
-                        activity_ok.push(label);
-                    }
-                    _ => {
-                        // Support flag true, but no activity fields after a
-                        // two-sample probe (false-positive support claim).
-                        claimed_but_empty.push(label);
-                    }
-                }
-            }
-
-            if probed == 0 {
-                return CheckResult::Skip("could not open any NVML device".to_string());
-            }
-            gpm_support_verdict(probed, &claimed, &activity_ok, &claimed_but_empty)
-        }
+    match crate::device::readers::nvidia_nvml::with_shared_nvml(check_gpm_supported_nvml) {
+        Ok(result) => result,
         Err(e) => CheckResult::Skip(format!("NVML init failed: {e}")),
     }
+}
+
+fn check_gpm_supported_nvml(nvml: &nvml_wrapper::Nvml) -> CheckResult {
+    let count = match nvml.device_count() {
+        Ok(c) => c,
+        Err(e) => {
+            return CheckResult::Skip(format!("NVML device_count failed: {e}"));
+        }
+    };
+    if count == 0 {
+        return CheckResult::Skip("NVML reports zero devices".to_string());
+    }
+
+    // Gap between the two GPM samples. Doctor runs once, so we must
+    // take both samples here; the live collector caches across polls.
+    const GPM_PROBE_GAP: Duration = Duration::from_millis(200);
+
+    let mut probed = 0u32;
+    let mut claimed: Vec<String> = Vec::new();
+    let mut activity_ok: Vec<String> = Vec::new();
+    let mut claimed_but_empty: Vec<String> = Vec::new();
+
+    for i in 0..count {
+        let Ok(device) = nvml.device_by_index(i) else {
+            continue;
+        };
+        probed += 1;
+        if !device.gpm_support().unwrap_or(false) {
+            continue;
+        }
+        let label = device_label(&device, i);
+        claimed.push(label.clone());
+
+        match crate::device::readers::nvidia_gpm::probe_two_sample(nvml, &device, GPM_PROBE_GAP) {
+            Some(metrics) if crate::device::readers::nvidia_gpm::has_activity_metrics(&metrics) => {
+                activity_ok.push(label);
+            }
+            _ => {
+                // Support flag true, but no activity fields after a
+                // two-sample probe (false-positive support claim).
+                claimed_but_empty.push(label);
+            }
+        }
+    }
+
+    if probed == 0 {
+        return CheckResult::Skip("could not open any NVML device".to_string());
+    }
+    gpm_support_verdict(probed, &claimed, &activity_ok, &claimed_but_empty)
 }
 
 fn device_label(device: &nvml_wrapper::Device<'_>, index: u32) -> String {

@@ -1,0 +1,30 @@
+[Wed Oct 14 04:43:41 2026] audit: type=1400 audit(1791953021.596:54): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.check-kernel" pid=3270 comm="apparmor_parser"
+[Wed Oct 14 04:43:41 2026] audit: type=1400 audit(1791953021.597:55): apparmor="STATUS" operation="profile_replace" profile="unconfined" name="snap.lxd.migrate" pid=3278 comm="apparmor_parser"
+[Wed Oct 14 04:44:24 2026] systemd[1]: systemd 249.11-0ubuntu3.17 running in system mode (+PAM +AUDIT +SELINUX +APPARMOR +IMA +SMACK +SECCOMP +GCRYPT +GNUTLS +OPENSSL +ACL +BLKID +CURL +ELFUTILS +FIDO2 +IDN2 -IDN +IPTC +KMOD +LIBCRYPTSETUP +LIBFDISK +PCRE2 -PWQUALITY -P11KIT -QRENCODE +BZIP2 +LZ4 +XZ +ZLIB +ZSTD -XKBCOMMON +UTMP +SYSVINIT default-hierarchy=unified)
+[Wed Oct 14 04:44:24 2026] systemd[1]: Detected virtualization kvm.
+[Wed Oct 14 04:44:24 2026] systemd[1]: Detected architecture x86-64.
+[Wed Oct 14 04:44:24 2026] systemd[1]: Configuration file /run/systemd/system/netplan-ovs-cleanup.service is marked world-inaccessible. This has no effect as configuration data is accessible via APIs without restrictions. Proceeding anyway.
+[Wed Oct 14 04:44:24 2026] systemd[1]: /lib/systemd/system/snapd.service:23: Unknown key name 'RestartMode' in section 'Service', ignoring.
+[Wed Oct 14 04:44:24 2026] systemd[1]: /etc/systemd/system/nvidia-cdi-refresh.service:26: Ignoring unknown escape sequences: "/(nvidia|nvidia-current)\.ko[:]"
+[Wed Oct 14 04:44:24 2026] systemd[1]: network-online.target: Wants dependency dropin /etc/systemd/system/network-online.target.wants/networking.service is not a symlink, ignoring.
+[Wed Oct 14 04:53:41 2026] netlink: 'client::tests::': attribute type 1 has an invalid length.
+[Wed Oct 14 04:53:41 2026] nvidia-nvswitch: Version mismatch, kernel version 580.126.09 user version 590.48.01
+[Wed Oct 14 04:53:47 2026] netlink: 'device::readers': attribute type 1 has an invalid length.
+[Wed Oct 14 04:53:47 2026] nvidia-nvswitch: Version mismatch, kernel version 580.126.09 user version 590.48.01
+[Wed Oct 14 04:54:12 2026] netlink: 'test_allsmi_con': attribute type 1 has an invalid length.
+[Wed Oct 14 04:54:12 2026] nvidia-nvswitch: Version mismatch, kernel version 580.126.09 user version 590.48.01
+[Wed Oct 14 04:54:16 2026] show_signal_msg: 6 callbacks suppressed
+[Wed Oct 14 04:54:16 2026] test_allsmi_con[26938]: segfault at 748ad2246010 ip 0000748ad2e328c1 sp 0000748a94ff1650 error 4 in libnvidia-ml.so.580.126.09[748ad2e1b000+17c000] likely on CPU 13 (core 3, socket 1)
+[Wed Oct 14 04:54:16 2026] Code: 45 88 48 89 d0 48 83 e0 f8 48 83 e1 f8 48 8b 7d b8 48 83 c1 08 49 8d 54 0d 00 48 89 55 98 48 8b 57 18 4c 8d 24 0a 48 89 55 b0 <41> 8b 54 24 08 89 93 b8 80 00 00 41 80 3f 01 0f 84 7c fe ff ff 49
+[Wed Oct 14 04:54:37 2026] netlink: 'test_allsmi_con': attribute type 1 has an invalid length.
+[Wed Oct 14 04:54:37 2026] nvidia-nvswitch: Version mismatch, kernel version 580.126.09 user version 590.48.01
+[Wed Oct 14 04:59:16 2026] netlink: 'test_allsmi_con': attribute type 1 has an invalid length.
+[Wed Oct 14 04:59:16 2026] nvidia-nvswitch: Version mismatch, kernel version 580.126.09 user version 590.48.01
+[Wed Oct 14 05:04:18 2026] netlink: 'test_get_gpu_by': attribute type 1 has an invalid length.
+[Wed Oct 14 05:04:18 2026] nvidia-nvswitch: Version mismatch, kernel version 580.126.09 user version 590.48.01
+[Wed Oct 14 05:04:30 2026] NvmlTaskRunner[27271]: segfault at 7ceb060c7010 ip 00007ceade6328c1 sp 00007cead4df74e0 error 4 in libnvidia-ml.so.580.126.09[7ceade61b000+17c000] likely on CPU 19 (core 9, socket 1)
+[Wed Oct 14 05:04:30 2026] Code: 45 88 48 89 d0 48 83 e0 f8 48 83 e1 f8 48 8b 7d b8 48 83 c1 08 49 8d 54 0d 00 48 89 55 98 48 8b 57 18 4c 8d 24 0a 48 89 55 b0 <41> 8b 54 24 08 89 93 b8 80 00 00 41 80 3f 01 0f 84 7c fe ff ff 49
+[Wed Oct 14 05:05:17 2026] netlink: 'test_allsmi_con': attribute type 1 has an invalid length.
+[Wed Oct 14 05:05:17 2026] nvidia-nvswitch: Version mismatch, kernel version 580.126.09 user version 590.48.01
+[Wed Oct 14 05:05:29 2026] test_allsmi_con[27350]: segfault at 7cbf58c30010 ip 00007cbf530328c1 sp 00007cbf283fd5e0 error 4 in libnvidia-ml.so.580.126.09[7cbf5301b000+17c000] likely on CPU 16 (core 6, socket 1)
+[Wed Oct 14 05:05:29 2026] Code: 45 88 48 89 d0 48 83 e0 f8 48 83 e1 f8 48 8b 7d b8 48 83 c1 08 49 8d 54 0d 00 48 89 55 98 48 8b 57 18 4c 8d 24 0a 48 89 55 b0 <41> 8b 54 24 08 89 93 b8 80 00 00 41 80 3f 01 0f 84 7c fe ff ff 49

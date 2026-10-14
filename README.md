@@ -44,7 +44,7 @@ Not every device exposes every metric. See [hardware requirements](docs/installa
 
 Deep-telemetry builds of this fork (NVIDIA GPM, NVML extras, and the DCGM plugin) are published as prebuilt archives on the [Metrum GitHub Releases](https://github.com/chetan-metrum-ai/all-smi/releases) page. On a GPU server, download `all-smi-linux-x86_64.tar.gz` and its `.sha256`, extract them, and run `./all-smi doctor`.
 
-Tags use a `v*-metrum.N` suffix so they never collide with upstream [lablup/all-smi](https://github.com/lablup/all-smi) releases. macOS aarch64 zips are unsigned. musl archives omit the AMD and DCGM runtime plugins. On glibc Linux, keep `liball_smi_amd.so` and `liball_smi_dcgm.so` beside the binary.
+Tags use a `v*-metrum.N` suffix so they never collide with upstream [lablup/all-smi](https://github.com/lablup/all-smi) releases. macOS aarch64 zips are unsigned. musl archives omit the AMD and DCGM runtime plugins. On glibc Linux, keep `liball_smi_amd.so` and `liball_smi_dcgm.so` beside the binary. DCGM enrichment connects to an external NVIDIA DCGM hostengine (`nvidia-dcgm.service`); the plugin does not start an embedded hostengine. If the service is unavailable, DCGM fields are omitted while NVML/GPM collection continues.
 
 This fork is not published to [crates.io](https://crates.io/crates/all-smi). `cargo install all-smi` installs the upstream crate and does not include the Metrum extras. To build this fork from source:
 
@@ -126,6 +126,10 @@ all-smi --help
 ```
 
 Configuration is optional. To keep an exporter running across reboots, follow the [service guide](docs/services.md) for your platform and installation method.
+
+## Recent Updates
+
+- **v0.27.1 (2026/10/11):** Added storage hiding, fixed remote host tabs and energy accounting, hardened HTTP collection, repaired Launchpad AMD packaging, refreshed documentation, and updated dependencies.
 
 ## Documentation
 

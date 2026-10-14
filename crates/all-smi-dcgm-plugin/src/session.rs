@@ -1,6 +1,11 @@
 // Copyright (c) 2026 Metrum AI, Inc. All rights reserved.
-//! DCGM sampling session: dlopen `libdcgm.so.4`, connect to hostengine
-//! (fallback embedded), watch PROF_* + XID/remap/throttle fields, sample.
+//! DCGM sampling session: dlopen `libdcgm.so.4`, connect to an external
+//! hostengine, watch PROF_* + XID/remap/throttle fields, sample.
+//!
+//! Embedded hostengine mode is deliberately not used: its in-process NVML
+//! worker threads race with the main crate's GPM sample API, which is not
+//! thread-safe with other NVML activity. Run the system hostengine service
+//! when DCGM metrics are required.
 
 #![cfg(all(target_os = "linux", not(target_env = "musl")))]
 
@@ -26,8 +31,7 @@ use crate::bindings::{
     DCGM_FI_PROF_PIPE_FP64_ACTIVE, DCGM_FI_PROF_PIPE_TENSOR_ACTIVE, DCGM_FI_PROF_SM_ACTIVE,
     DCGM_FI_PROF_SM_OCCUPANCY, DCGM_FP64_BLANK, DCGM_FT_DOUBLE, DCGM_FT_INT64, DCGM_FT_STRING,
     DCGM_INT64_BLANK, DCGM_MAX_NUM_DEVICES, dcgmConnectV2Params_t, dcgmFieldValue_v1,
-    dcgmGroupType_enum_DCGM_GROUP_DEFAULT, dcgmHandle_t,
-    dcgmOperationMode_enum_DCGM_OPERATION_MODE_AUTO, dcgmReturn_enum_DCGM_ST_OK, dcgmReturn_t,
+    dcgmGroupType_enum_DCGM_GROUP_DEFAULT, dcgmHandle_t, dcgmReturn_enum_DCGM_ST_OK, dcgmReturn_t,
     make_dcgm_version,
 };
 
@@ -60,9 +64,7 @@ type FnConnectV2 = unsafe extern "C" fn(
     *mut dcgmConnectV2Params_t,
     *mut dcgmHandle_t,
 ) -> dcgmReturn_t;
-type FnStartEmbedded = unsafe extern "C" fn(c_uint, *mut dcgmHandle_t) -> dcgmReturn_t;
 type FnDisconnect = unsafe extern "C" fn(dcgmHandle_t) -> dcgmReturn_t;
-type FnStopEmbedded = unsafe extern "C" fn(dcgmHandle_t) -> dcgmReturn_t;
 type FnGetAllDevices = unsafe extern "C" fn(dcgmHandle_t, *mut c_uint, *mut c_int) -> dcgmReturn_t;
 type FnGroupCreate =
     unsafe extern "C" fn(dcgmHandle_t, c_uint, *const c_char, *mut usize) -> dcgmReturn_t;
@@ -92,9 +94,7 @@ struct DcgmFns {
     init: Symbol<'static, FnInit>,
     shutdown: Symbol<'static, FnShutdown>,
     connect_v2: Symbol<'static, FnConnectV2>,
-    start_embedded: Symbol<'static, FnStartEmbedded>,
     disconnect: Symbol<'static, FnDisconnect>,
-    stop_embedded: Symbol<'static, FnStopEmbedded>,
     get_all_devices: Symbol<'static, FnGetAllDevices>,
     group_create: Symbol<'static, FnGroupCreate>,
     group_destroy: Symbol<'static, FnGroupDestroy>,
@@ -124,20 +124,10 @@ impl DcgmFns {
                 Symbol<'_, FnConnectV2>,
                 Symbol<'static, FnConnectV2>,
             >(lib.get(b"dcgmConnect_v2\0").map_err(|e| e.to_string())?);
-            let start_embedded = std::mem::transmute::<
-                Symbol<'_, FnStartEmbedded>,
-                Symbol<'static, FnStartEmbedded>,
-            >(
-                lib.get(b"dcgmStartEmbedded\0").map_err(|e| e.to_string())?
-            );
             let disconnect = std::mem::transmute::<
                 Symbol<'_, FnDisconnect>,
                 Symbol<'static, FnDisconnect>,
             >(lib.get(b"dcgmDisconnect\0").map_err(|e| e.to_string())?);
-            let stop_embedded =
-                std::mem::transmute::<Symbol<'_, FnStopEmbedded>, Symbol<'static, FnStopEmbedded>>(
-                    lib.get(b"dcgmStopEmbedded\0").map_err(|e| e.to_string())?,
-                );
             let get_all_devices = std::mem::transmute::<
                 Symbol<'_, FnGetAllDevices>,
                 Symbol<'static, FnGetAllDevices>,
@@ -190,9 +180,7 @@ impl DcgmFns {
                 init,
                 shutdown,
                 connect_v2,
-                start_embedded,
                 disconnect,
-                stop_embedded,
                 get_all_devices,
                 group_create,
                 group_destroy,
@@ -250,7 +238,6 @@ pub struct GpuSample {
 pub struct Session {
     fns: DcgmFns,
     handle: dcgmHandle_t,
-    embedded: bool,
     group: usize,
     field_group: usize,
     watched: bool,
@@ -266,28 +253,21 @@ impl Session {
         }
 
         let mut handle: dcgmHandle_t = 0;
-        let mut embedded = false;
         let addr = CString::new("127.0.0.1").unwrap();
         let mut params = dcgmConnectV2Params_t {
             version: make_dcgm_version::<dcgmConnectV2Params_t>(2),
             persistAfterDisconnect: 0,
-            timeoutMs: 3000,
+            // Keep missing-hostengine fallback cheap; readers may retry on
+            // later samples if the service becomes available.
+            timeoutMs: 100,
             addressIsUnixSocket: 0,
         };
         let st = unsafe { (fns.connect_v2)(addr.as_ptr(), &mut params, &mut handle) };
         if st != dcgmReturn_enum_DCGM_ST_OK {
-            // Fallback: embedded mode (may require elevated privileges).
-            let st2 = unsafe {
-                (fns.start_embedded)(dcgmOperationMode_enum_DCGM_OPERATION_MODE_AUTO, &mut handle)
-            };
-            if st2 != dcgmReturn_enum_DCGM_ST_OK {
-                let _ = unsafe { (fns.shutdown)() };
-                return Err(format!(
-                    "dcgmConnect_v2({st}) and dcgmStartEmbedded({st2}) both failed \
-                     (embedded often needs root / CAP_SYS_ADMIN)"
-                ));
-            }
-            embedded = true;
+            let _ = unsafe { (fns.shutdown)() };
+            return Err(format!(
+                "dcgmConnect_v2({st}) failed; embedded hostengine is disabled because its in-process NVML workers are unsafe with GPM sampling"
+            ));
         }
 
         let mut group: usize = 0;
@@ -301,7 +281,7 @@ impl Session {
             )
         };
         if st != dcgmReturn_enum_DCGM_ST_OK {
-            Self::teardown(&fns, handle, embedded, 0, 0);
+            Self::teardown(&fns, handle, 0, 0);
             return Err(format!("dcgmGroupCreate failed: {st}"));
         }
 
@@ -317,7 +297,7 @@ impl Session {
             )
         };
         if st != dcgmReturn_enum_DCGM_ST_OK {
-            Self::teardown(&fns, handle, embedded, group, 0);
+            Self::teardown(&fns, handle, group, 0);
             return Err(format!("dcgmFieldGroupCreate failed: {st}"));
         }
 
@@ -336,20 +316,13 @@ impl Session {
         Ok(Self {
             fns,
             handle,
-            embedded,
             group,
             field_group,
             watched,
         })
     }
 
-    fn teardown(
-        fns: &DcgmFns,
-        handle: dcgmHandle_t,
-        embedded: bool,
-        group: usize,
-        field_group: usize,
-    ) {
+    fn teardown(fns: &DcgmFns, handle: dcgmHandle_t, group: usize, field_group: usize) {
         if field_group != 0 {
             let _ = unsafe { (fns.field_group_destroy)(handle, field_group) };
         }
@@ -357,11 +330,7 @@ impl Session {
             let _ = unsafe { (fns.group_destroy)(handle, group) };
         }
         if handle != 0 {
-            if embedded {
-                let _ = unsafe { (fns.stop_embedded)(handle) };
-            } else {
-                let _ = unsafe { (fns.disconnect)(handle) };
-            }
+            let _ = unsafe { (fns.disconnect)(handle) };
         }
         let _ = unsafe { (fns.shutdown)() };
     }
@@ -411,13 +380,7 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        Self::teardown(
-            &self.fns,
-            self.handle,
-            self.embedded,
-            self.group,
-            self.field_group,
-        );
+        Self::teardown(&self.fns, self.handle, self.group, self.field_group);
         self.handle = 0;
         self.group = 0;
         self.field_group = 0;
