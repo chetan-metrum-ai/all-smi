@@ -269,3 +269,33 @@ Published `v0.27.0-metrum.1` `all-smi-linux-x86_64.tar.gz` (sha256 OK) on the sa
 Single MI325X in `tor1` (`gpu-mi325x1-256gb`, image `gpu-amd-base`, droplet `607320438`). The published glibc tarball was copied to `/opt/all-smi-rel` because the loader refuses a plugin under world-writable `/tmp`.
 
 Same-moment readings: hwmon `power1_input` 133000000 µW, `rocm-smi` 134.0 W, `all_smi_gpu_power_consumption_watts` 133. Device id `0x74b9`, ASIC `GFX940/MI300`, SKU `M3250101`. `doctor --only amd` loaded plugin 0.27.0. `amd.rocm.version` still skipped. Droplet deleted after the check.
+
+## Release v0.27.1-metrum.1
+
+Tagged on fork `main` after merging `lablup/main` through `ddfe94c` (upstream tag `v0.27.1`). Merged by Metrum AI.
+
+### Changes since v0.27.0-metrum.1
+
+- Sync upstream v0.27.1: display-only `--hide-storage` for local and view modes (#455), remote host tab identity and chassis energy/cost fixes, bounded remote HTTP buffering, cancelled timed-out remote fetches (#454)
+- Merge fix: initialize fork deep-telemetry `GpuInfo` fields and per-process `enc_util`/`dec_util`/`gpu_mem_util` on the new upstream test fixtures in `src/view/event_handler.rs` and `src/view/frame_renderer.rs`
+- Fork: DCGM plugin crate version moves from 0.27.0 to 0.27.1 with the main binary
+- Fork: `AGENTS.md` (Shadeform NVIDIA validation required before work is done) and `scripts/dev/remote-release-smoke.sh`
+
+Crate version is `0.27.1`; tag is `v0.27.1-metrum.1`.
+
+### Pre-release validation (Shadeform H100)
+
+Shadeform H100 PCIe (Hyperstack, driver 570.195.03, CUDA 12.8, DCGM 4.7.0, rustc 1.99.0). Instance `fe1018e3-ef7e-483c-a886-c92a735e4ed6`, deleted after the run. Log: `TECHNICAL_REPORTS/runs/v0.27.1-metrum.1-h100-smoke/`.
+
+- gengar (no GPU): `cargo build --release --workspace --exclude all-smi-amd-plugin` (no `libdrm-dev` on gengar); `cargo test -p all-smi` all targets pass with the 2 sudo tests skipped (no `sudo` binary)
+- Release build on the H100: `all-smi 0.27.1`, `liball_smi_amd.so`, `liball_smi_dcgm.so`
+- `cargo test --release -- --test-threads=1`: all targets pass (lib 1885, bin 2082, `library_api_test` 25)
+- `ALL_SMI_LIVE_GPU=1` `gpm_parity`: 2 passed
+- `doctor --only nvidia.gpm,nvidia.dcgm`: 4 pass; `doctor --only amd`: plugin 0.27.1 loaded, 3 pass, 5 skip
+- `cargo test -p all-smi-amd-plugin --release`: 12 passed
+- Default API scrape: `source="gpm"` on 20 series; power 48.476 W idle
+- `ALL_SMI_NVIDIA_DISABLE_GPM=1` plus the DCGM plugin: `source="dcgm"` on 13 series
+
+### Known issue (pre-existing): parallel `library_api_test` crashes in NVML
+
+With default parallel test threads, `tests/library_api_test.rs` segfaults inside `libnvidia-ml.so` on real NVIDIA GPUs. Baseline `main` (v0.27.0-metrum.1) on the same H100 failed 3 of 3 runs (`test_gpu_info_does_not_panic`, `test_multiple_allsmi_instances`, `test_refresh_gpu*`). A first validation box (RTX PRO 6000 Blackwell, driver 580.126.09, instance `12965f5b-6b55-4d27-a314-e696d41c8df6`) hit the same segfault, then `NVRM: nvAssertFailedNoLog ... list.c:304` and RCU stalls; `nvidia-smi` hung and the box was deleted. This merge does not touch `tests/library_api_test.rs` or the library API. Single-threaded runs pass. Follow-up: serialize NVML init/shutdown across `AllSmi` instances (or the tests).

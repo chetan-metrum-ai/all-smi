@@ -1358,6 +1358,13 @@ mod tests {
             gsp_firmware_version: None,
             nvlink_remote_devices: Vec::new(),
             gpm_metrics: None,
+            // Metrum AI fork deep-telemetry fields
+            throttle_reasons: None,
+            energy_hw_millijoules: None,
+            remapped_rows: None,
+            nvlink_errors: Vec::new(),
+            utilization_samples: None,
+            xid_event_counts: std::collections::HashMap::new(),
             detail: std::collections::HashMap::new(),
         }
     }

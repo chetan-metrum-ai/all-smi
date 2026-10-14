@@ -1,0 +1,92 @@
+=== sync branch ===
+synced to shadeform@<ip>:~/all-smi/
+=== release build (workspace, incl. AMD + DCGM plugins) ===
+   Compiling all-smi-amd-plugin v0.27.1 (/home/shadeform/all-smi/crates/all-smi-amd-plugin)
+    Finished `release` profile [optimized] target(s) in 1m 59s
+=== cargo test --release (branch, --test-threads=1) ===
+exit=0
+      1 test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.14s
+      2 test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+      1 test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+      1 test result: ok. 1885 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.62s
+      1 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 2082 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 11.84s
+      1 test result: ok. 23 passed; 0 failed; 13 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.55s
+      2 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+      2 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+      1 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+      1 test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+      1 test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+      1 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+      1 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+      1 test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      2 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+      1 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+      1 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s
+=== gpm_parity live (branch) ===
+     Running tests/gpm_parity.rs (target/release/deps/gpm_parity-7ae8fc5ad31f4136)
+test gpm_parity_live_against_captures ... hollow DCGM SM_ACTIVE (1002) mean = Some(0.0010000000000000005)
+test gpm_parity_skips_without_live_flag ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+=== smoke (doctor, AMD plugin tests, live scrapes) ===
+=== version ===
+all-smi 0.27.1
+NVIDIA H100 PCIe, 570.195.03
+
+dcgmi  version: 4.7.0
+
+=== doctor --only nvidia.gpm,nvidia.dcgm ===
+all-smi doctor — 0.27.1
+Running 4 checks…
+
+PASS nvidia.dcgm.hostengine           host engine reachable: 1 GPU found (Active).
+PASS nvidia.dcgm.library              dcgmi at /usr/bin/dcgmi; libdcgm present
+PASS nvidia.dcgm.prof_module          dcgmi dmon -e 1002 succeeded (profiling module usable)
+PASS nvidia.gpm.supported             GPM activity metrics sampled on 1 of 1 device(s) that claim support (NVIDIA H100 PCIe (GPU-e56a43af-6379-643e-1fc2-58f459066b2b))
+
+Summary: 4 pass, 0 warn, 0 fail, 0 skipped
+Exit code: 0
+=== doctor --only amd ===
+all-smi doctor — 0.27.1
+Running 8 checks…
+
+SKIP amd.adl.adapters                 ADL is Windows-only
+SKIP amd.adl.library                  ADL is Windows-only
+SKIP amd.adl.per_adapter              ADL is Windows-only
+SKIP amd.adl.sensors                  ADL is Windows-only
+PASS amd.build.target_env             glibc Linux build — AMD runtime loader compiled in; the `amd` cargo feature does not gate it
+PASS amd.dri.perms                    3 node(s): card1, renderD128, card0
+PASS amd.libamdgpu_top.abi            loaded /home/<user>/all-smi/target/release/liball_smi_amd.so (plugin 0.27.1, ABI v1, libamdgpu_top 0.11.5)
+SKIP amd.rocm.version                 ROCm not detected (neither /opt/rocm nor rocminfo)
+
+Summary: 3 pass, 0 warn, 0 fail, 5 skipped
+Exit code: 0
+=== cargo test -p all-smi-amd-plugin --release ===
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+=== live scrapes ===
+--- default: all_smi_up / source label counts / power
+     20 source="gpm"
+all_smi_gpu_power_consumption_watts{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-e56a43af-6379-643e-1fc2-58f459066b2b", gpu_index="0"} 48.476
+--- dcgm-fallback: all_smi_up / source label counts / power
+     13 source="dcgm"
+all_smi_gpu_power_consumption_watts{gpu="NVIDIA H100 PCIe", instance="shadecloud", gpu_uuid="GPU-e56a43af-6379-643e-1fc2-58f459066b2b", gpu_index="0"} 48.318
+SMOKE_DONE
+=== dmesg check after branch validation ===
+0
+=== BASELINE main (v0.27.0-metrum.1): library_api_test default parallel threads x3 ===
+error: test failed, to rerun pass `--test library_api_test`
+  process didn't exit successfully: `/home/shadeform/all-smi-main/target/release/deps/library_api_test-378558337b344493` (signal: 11, SIGSEGV: invalid memory reference)
+error: test failed, to rerun pass `--test library_api_test`
+  process didn't exit successfully: `/home/shadeform/all-smi-main/target/release/deps/library_api_test-378558337b344493` (signal: 11, SIGSEGV: invalid memory reference)
+error: test failed, to rerun pass `--test library_api_test`
+  process didn't exit successfully: `/home/shadeform/all-smi-main/target/release/deps/library_api_test-378558337b344493` (signal: 11, SIGSEGV: invalid memory reference)
+[Wed Oct 14 03:15:39 2026] test_gpu_info_d[37301]: segfault at 75197c095728 ip 000075195ee2595a sp 00007519aa1e5d80 error 4 in libnvidia-ml.so.570.195.03[75195ee00000+1e6000] likely on CPU 5 (core 5, socket 0)
+[Wed Oct 14 03:15:41 2026] test_multiple_a[37450]: segfault at 7bd80c0b72d8 ip 00007bd83e82595a sp 00007bd8447e2d30 error 4 in libnvidia-ml.so.570.195.03[7bd83e800000+1e6000] likely on CPU 15 (core 1, socket 1)
+[Wed Oct 14 03:15:42 2026] test_refresh_gp[37531]: segfault at 72fb221c5008 ip 000072faf9a2b593 sp 000072fafafee960 error 4 in libnvidia-ml.so.570.195.03[72faf9a00000+1e6000] likely on CPU 2 (core 2, socket 0)
+VALIDATE_DONE

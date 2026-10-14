@@ -1055,6 +1055,10 @@ mod tests {
             priority: 20,
             nice_value: 0,
             gpu_utilization: 0.0,
+            // Metrum AI fork per-process NVML fields
+            enc_util: None,
+            dec_util: None,
+            gpu_mem_util: None,
         }
     }
 
