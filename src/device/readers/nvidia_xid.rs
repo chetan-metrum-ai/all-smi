@@ -2,7 +2,7 @@
 
 //! Best-effort NVML XID / ECC event watcher (P2).
 //!
-//! Spawns a background thread with its own NVML handle, registers for
+//! Spawns a background thread using the shared process-wide NVML handle, registers for
 //! critical XID and ECC events, and accumulates per-UUID counts. The
 //! NVIDIA reader copies a snapshot into `GpuInfo::xid_event_counts` each
 //! poll. Failures (unsupported platform, driver too old, no GPU) leave
@@ -80,62 +80,71 @@ fn record_event(uuid: String, xid: u32) {
 
 #[cfg(target_os = "linux")]
 fn xid_watcher_loop() {
-    use nvml_wrapper::Nvml;
     use nvml_wrapper::bitmasks::event::EventTypes;
     use nvml_wrapper::enums::event::XidError;
     use std::thread;
     use std::time::Duration;
 
-    let Ok(nvml) = Nvml::init() else {
-        return;
-    };
-    let Ok(mut set) = nvml.create_event_set() else {
-        return;
-    };
-    let want = EventTypes::CRITICAL_XID_ERROR
-        | EventTypes::DOUBLE_BIT_ECC_ERROR
-        | EventTypes::SINGLE_BIT_ECC_ERROR;
-    let Ok(count) = nvml.device_count() else {
-        return;
-    };
-    for i in 0..count {
-        let Ok(device) = nvml.device_by_index(i) else {
-            continue;
+    let set = match super::nvidia_nvml::with_shared_nvml(|nvml| {
+        let Ok(mut set) = nvml.create_event_set() else {
+            return None;
         };
-        let Ok(supported) = device.supported_event_types() else {
-            continue;
+        let want = EventTypes::CRITICAL_XID_ERROR
+            | EventTypes::DOUBLE_BIT_ECC_ERROR
+            | EventTypes::SINGLE_BIT_ECC_ERROR;
+        let Ok(count) = nvml.device_count() else {
+            return None;
         };
-        let events = supported & want;
-        if events.is_empty() {
-            continue;
+        for i in 0..count {
+            let Ok(device) = nvml.device_by_index(i) else {
+                continue;
+            };
+            let Ok(supported) = device.supported_event_types() else {
+                continue;
+            };
+            let events = supported & want;
+            if events.is_empty() {
+                continue;
+            }
+            match device.register_events(events, set) {
+                Ok(s) => set = s,
+                Err(_) => return None,
+            }
         }
-        match device.register_events(events, set) {
-            Ok(s) => set = s,
-            Err(_) => return,
-        }
-    }
+        Some(set)
+    }) {
+        Ok(Some(set)) => set,
+        _ => return,
+    };
 
     loop {
-        match set.wait(1000) {
+        // Keep the event wait within the same process-wide NVML critical
+        // section as reader queries and GPM samples. Use a short timeout so
+        // polling readers are not held up waiting for the event queue.
+        let event = super::nvidia_nvml::with_shared_nvml(|_| match set.wait(10) {
             Ok(data) => {
                 let uuid = data.device.uuid().unwrap_or_else(|_| "unknown".to_string());
                 let xid = if data.event_type.contains(EventTypes::CRITICAL_XID_ERROR) {
                     match data.event_data {
-                        Some(XidError::Value(v)) => v as u32,
-                        Some(XidError::Unknown) | None => 999,
+                        Some(XidError::Value(v)) => Some(v as u32),
+                        Some(XidError::Unknown) | None => Some(999),
                     }
                 } else if data.event_type.contains(EventTypes::DOUBLE_BIT_ECC_ERROR) {
-                    48
+                    Some(48)
                 } else if data.event_type.contains(EventTypes::SINGLE_BIT_ECC_ERROR) {
-                    94
+                    Some(94)
                 } else {
-                    continue;
+                    None
                 };
-                record_event(uuid, xid);
+                if let Some(xid) = xid {
+                    record_event(uuid, xid);
+                }
+                true
             }
-            Err(_) => {
-                thread::sleep(Duration::from_millis(50));
-            }
+            Err(_) => false,
+        });
+        if !matches!(event, Ok(true)) {
+            thread::sleep(Duration::from_millis(50));
         }
     }
 }

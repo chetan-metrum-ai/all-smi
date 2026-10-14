@@ -1,0 +1,11 @@
+
+=== concurrent regression final-lock run 01/05 ===
+    Finished `release` profile [optimized] target(s) in 0.22s
+     Running tests/library_api_test.rs (target/release/deps/library_api_test-8ee3907f4f1c2d8e)
+
+running 1 test
+ibwarn: [27311] get_abi_version: can't read ABI version from /sys/class/infiniband_mad/abi_version (No such file or directory): is ib_umad module loaded?
+error: test failed, to rerun pass `--test library_api_test`
+
+Caused by:
+  process didn't exit successfully: `/home/shadeform/all-smi/target/release/deps/library_api_test-8ee3907f4f1c2d8e test_allsmi_concurrent_create_and_drop_on_gpu --exact` (signal: 11, SIGSEGV: invalid memory reference)

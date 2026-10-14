@@ -1,0 +1,2 @@
+[Wed Oct 14 04:19:54 2026] NVRM: loading NVIDIA UNIX Open Kernel Module for x86_64  570.195.03  Release Build  (dvs-builder@U22-I3-H04-03-1)  Sat Sep 20 00:47:16 UTC 2025
+[Wed Oct 14 04:29:01 2026] test_allsmi_con[26531]: segfault at 706b0639e008 ip 0000706b0522b593 sp 0000706af9ffa650 error 4 in libnvidia-ml.so.570.195.03[706b05200000+1e6000] likely on CPU 25 (core 11, socket 1)

@@ -3,13 +3,18 @@
 # Runs ON the Shadeform GPU box (via gpu-run.sh) after a release build.
 # Metrum AI release smoke: doctor GPM/DCGM/AMD, AMD plugin tests, and live
 # /metrics scrapes for the default GPM source and the DCGM fallback.
-set -uo pipefail
+set -euo pipefail
 
 BIN=./target/release/all-smi
 DCGM_SO="${PWD}/target/release/liball_smi_dcgm.so"
 
 echo "=== version ==="
 "${BIN}" --version
+if ! systemctl is-active --quiet nvidia-dcgm.service \
+  && ! systemctl is-active --quiet dcgm.service; then
+  echo "ERROR: external DCGM hostengine is inactive; embedded hostengine fallback is disabled"
+  exit 1
+fi
 nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
 dcgmi --version 2>/dev/null | head -3 || true
 
@@ -20,7 +25,7 @@ echo "=== doctor --only amd ==="
 "${BIN}" doctor --only amd || true
 
 echo "=== cargo test -p all-smi-amd-plugin --release ==="
-cargo test -p all-smi-amd-plugin --release 2>&1 | grep -E "^test result|FAILED"
+cargo test -p all-smi-amd-plugin --release
 
 scrape() {
   local port="$1" label="$2"; shift 2

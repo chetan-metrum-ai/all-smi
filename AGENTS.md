@@ -21,8 +21,9 @@ python3 scripts/dev/shadeform.py status        # refuse to double-rent; reuse a 
 python3 scripts/dev/shadeform.py create        # RTXPro6000 -> H200 -> H100 -> L40S (B200 banned)
 scripts/dev/gpu-setup.sh                       # once per box: toolchain, libdrm, DCGM, torch
 scripts/dev/gpu-test.sh                        # sync, release build, tests, GPM parity, doctor
+scripts/dev/gpu-run.sh cargo test --release --test library_api_test           # default parallelism; includes NVML race regression
 scripts/dev/gpu-run.sh cargo build --release --workspace                     # plugins too
-scripts/dev/gpu-run.sh bash scripts/dev/remote-release-smoke.sh              # doctor + live scrapes
+scripts/dev/gpu-run.sh bash scripts/dev/remote-release-smoke.sh              # doctor + live scrapes; requires external hostengine
 python3 scripts/dev/shadeform.py delete --yes-i-am-sure                      # always
 ```
 
@@ -39,17 +40,38 @@ Minimum evidence to record in the PR "Test plan" and in
 
 `gpu-test.sh` writes run artifacts to `TECHNICAL_REPORTS/runs/<timestamp>/`.
 
-### Known hazard: parallel NVML tests crash the GPU box
+### Fixed hazard: concurrent NVML/GPM use across `AllSmi` instances
 
-`tests/library_api_test.rs` creates and drops `AllSmi` instances on parallel test
-threads. On a real NVIDIA GPU this segfaults inside `libnvidia-ml.so` (seen on
-H100 with driver 570 and on RTX PRO 6000 with driver 580, on `main` as of
-v0.27.0-metrum.1). On the RTX PRO 6000 it then wedged the kernel driver
-(`NVRM: nvAssertFailedNoLog`, RCU stalls, `nvidia-smi` hangs), and the box had
-to be deleted. Until the race is fixed, run the GPU-box test suite with
-`cargo test --release -- --test-threads=1`, and run any parallel repro only as
-the last step before deleting the instance. If `nvidia-smi` hangs, don't
-debug the box. Capture `dmesg`, delete it, and rent a fresh one.
+The parallel `library_api_test` crash had two interacting NVML-lifetime hazards.
+Every `NvidiaGpuReader` originally initialized its own `nvml_wrapper::Nvml`,
+whose `Drop` calls process-global `nvmlShutdown`; dropping one reader could
+invalidate another reader's NVML handles and cached GPM samples. Also,
+`nvml-wrapper` explicitly documents GPM sample operations as not thread-safe,
+while the old `GpmState` mutex protected only one reader. A shared handle and
+process-wide serialization fix those hazards within the main crate.
+
+GPU reproduction exposed a second important interaction: when no DCGM
+hostengine service is available, the in-process DCGM plugin fell back to an
+embedded hostengine. Its private NVML worker threads bypass the main crate's
+lock and race with GPM sampling. On an H100 / driver 580.126.09, the default
+parallel regression repeatedly segfaulted in `libnvidia-ml.so` with embedded
+DCGM, but passed with the plugin unavailable or with an external hostengine.
+The plugin now connects only to the external hostengine; it no longer starts
+an embedded one. When DCGM is unavailable, DCGM enrichment degrades cleanly,
+while GPM and other NVML readings remain available.
+
+NVML initialization failures are not cached, preserving the clean no-NVIDIA
+path. Readers, diagnostics, GPM cleanup, and the XID watcher use one
+process-lifetime handle and the process-wide NVML/GPM locks. Shadeform evidence,
+including failure reproductions on driver 580.126.09 and final passing default-
+parallel runs, is recorded in
+`TECHNICAL_REPORTS/deep-telemetry-progress.md` and
+`TECHNICAL_REPORTS/runs/v0.27.1-metrum.1-nvml-race/`.
+
+Keep the dmesg safeguard for GPU-box validation. If `nvidia-smi` hangs, don't
+debug the box: capture `sudo dmesg`, delete it, and rent a fresh one. The
+regression test must run as part of the normal validation, not be serialized
+away with `--test-threads=1`.
 
 ## Secrets
 

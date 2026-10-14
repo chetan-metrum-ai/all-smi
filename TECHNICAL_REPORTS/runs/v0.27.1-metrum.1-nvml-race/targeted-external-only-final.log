@@ -1,0 +1,9 @@
+   Compiling all-smi v0.27.1 (/home/shadeform/all-smi)
+    Finished `release` profile [optimized] target(s) in 2m 02s
+     Running tests/library_api_test.rs (target/release/deps/library_api_test-8ee3907f4f1c2d8e)
+
+running 1 test
+test test_allsmi_concurrent_create_and_drop_on_gpu has been running for over 60 seconds
+test test_allsmi_concurrent_create_and_drop_on_gpu ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 158.53s

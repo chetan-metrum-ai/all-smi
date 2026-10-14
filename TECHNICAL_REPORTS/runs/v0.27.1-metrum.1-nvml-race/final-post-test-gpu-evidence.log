@@ -1,0 +1,8 @@
+final-post-test-utc=2026-10-14T05:39:02Z
+rustc 1.99.0 (b940084d7 2026-09-28)
+NVIDIA H100 PCIe, 580.126.09
+active
+nvidia-smi query: OK
+[Wed Oct 14 04:54:16 2026] test_allsmi_con[26938]: segfault at 748ad2246010 ip 0000748ad2e328c1 sp 0000748a94ff1650 error 4 in libnvidia-ml.so.580.126.09[748ad2e1b000+17c000] likely on CPU 13 (core 3, socket 1)
+[Wed Oct 14 05:04:30 2026] NvmlTaskRunner[27271]: segfault at 7ceb060c7010 ip 00007ceade6328c1 sp 00007cead4df74e0 error 4 in libnvidia-ml.so.580.126.09[7ceade61b000+17c000] likely on CPU 19 (core 9, socket 1)
+[Wed Oct 14 05:05:29 2026] test_allsmi_con[27350]: segfault at 7cbf58c30010 ip 00007cbf530328c1 sp 00007cbf283fd5e0 error 4 in libnvidia-ml.so.580.126.09[7cbf5301b000+17c000] likely on CPU 16 (core 6, socket 1)

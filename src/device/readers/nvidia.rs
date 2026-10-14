@@ -77,8 +77,6 @@ pub struct NvidiaGpuReader {
     cuda_version: OnceLock<String>,
     /// Cached static device information per device index
     device_static_info: OnceLock<HashMap<u32, DeviceStaticInfo>>,
-    /// Cached NVML handle (initialized once, reused across calls)
-    nvml: Mutex<Option<Nvml>>,
     /// Cached temperature thresholds per device index. Populated lazily on
     /// the first successful read and reused for the lifetime of the process.
     thermal_thresholds: Mutex<HashMap<u32, ThermalThresholds>>,
@@ -130,7 +128,6 @@ impl NvidiaGpuReader {
             driver_version: OnceLock::new(),
             cuda_version: OnceLock::new(),
             device_static_info: OnceLock::new(),
-            nvml: Mutex::new(Nvml::init().ok()),
             thermal_thresholds: Mutex::new(HashMap::new()),
             hardware_details: HardwareDetailCache::new(),
             gpm_state: GpmState::new(),
@@ -207,34 +204,18 @@ impl NvidiaGpuReader {
             .clone()
     }
 
-    /// Execute a closure with a reference to the cached NVML handle.
-    /// Reinitializes the handle if it was previously unavailable or became invalid.
+    /// Execute a closure with the process-wide NVML handle.
+    /// Initialization failures remain retryable through `shared_nvml`.
     fn with_nvml<F, T>(&self, f: F) -> Result<T, NvmlError>
     where
         F: FnOnce(&Nvml) -> T,
     {
-        let mut guard = self.nvml.lock().map_err(|_| NvmlError::Unknown)?;
-        // Try to use existing handle first
-        if let Some(ref nvml) = *guard {
-            // Validate the handle is still usable by querying device count
-            if nvml.device_count().is_ok() {
-                return Ok(f(nvml));
-            }
-            // Handle is stale — abandon GPM samples that belonged to it.
-            self.gpm_state.abandon();
-        }
-        // Initialize or reinitialize
-        match Nvml::init() {
-            Ok(nvml) => {
-                let result = f(&nvml);
-                *guard = Some(nvml);
-                Ok(result)
-            }
-            Err(e) => {
-                *guard = None;
-                Err(e)
-            }
-        }
+        // Serialize the complete query, not only initialization: GPM sample
+        // operations can crash when interleaved with other NVML calls.
+        super::nvidia_nvml::with_shared_nvml(|nvml| {
+            nvml.device_count()?;
+            Ok(f(nvml))
+        })?
     }
 
     /// Get cached static device info for all devices, initializing if needed
@@ -563,10 +544,14 @@ pub fn get_nvml_status_message() -> Option<String> {
 
 impl Drop for NvidiaGpuReader {
     fn drop(&mut self) {
-        // Free cached GPM samples while the NVML library is still alive.
-        match self.nvml.get_mut() {
-            Ok(Some(nvml)) => self.gpm_state.free_all(nvml),
-            _ => self.gpm_state.abandon(),
+        // GPM samples belong to the process-wide NVML handle, which remains
+        // alive after this reader is dropped. Free this reader's samples
+        // without shutting NVML down underneath other readers.
+        if self.gpm_state.has_samples() {
+            match super::nvidia_nvml::with_shared_nvml(|nvml| self.gpm_state.free_all(nvml)) {
+                Ok(()) => {}
+                Err(_) => self.gpm_state.abandon(),
+            }
         }
     }
 }
