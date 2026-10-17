@@ -6,7 +6,7 @@ Loads SHADEFORM_API_KEY from env.json in-process and sends it only as the
 X-API-KEY header. Never prints the key, never passes it on a CLI argv.
 
 Subcommands:
-  create   Rent one GPU box (RTXPro6000 → H200 → H100 → L40S). Refuse if live id.
+  create   Rent one GPU box (RTXPro6000 → B200 → H200 → H100 → L40S). Refuse if live id.
   status   Print instance status from .shadeform-state.json + API.
   ssh-cmd  Run a remote command over SSH using the project key.
   delete   Tear down the instance (requires --yes-i-am-sure).
@@ -33,8 +33,6 @@ STATE_PATH = REPO_ROOT / ".shadeform-state.json"
 SSH_KEY_PATH = REPO_ROOT / ".shadeform_ed25519"
 SSH_PUB_PATH = REPO_ROOT / ".shadeform_ed25519.pub"
 INSTANCE_NAME = "metrum-allsmi-dev"
-BANNED_GPU = {"B200", "b200"}
-
 
 def load_api_key() -> str:
     if not ENV_PATH.is_file():
@@ -146,21 +144,19 @@ def _os_preference(os_name: str) -> int:
     return 2
 
 
-# Preference order for create: RTX 6000 Pro Blackwell Server Edition first,
-# then datacenter fallbacks. Bare B200 remains banned.
-GPU_PREFERENCE_CHAIN = ("RTXPro6000", "H200", "H100", "L40S")
+# Preference order for create: RTX 6000 Pro Blackwell Server Edition, then
+# B200 and datacenter fallbacks.
+GPU_PREFERENCE_CHAIN = ("RTXPro6000", "B200", "H200", "H100", "L40S")
 
 
 def _gpu_type_matches(gpu_type: str, want: str) -> bool:
     """Match Shadeform gpu_type against a preference token.
 
     Exact case-insensitive match for most tokens. RTXPro6000 also accepts
-    common aliases (RTX PRO 6000, RTX6000Pro, …) but never bare B200.
+    common aliases (RTX PRO 6000, RTX6000Pro, …).
     """
     gt = gpu_type.strip().upper().replace(" ", "").replace("_", "").replace("-", "")
     w = want.strip().upper().replace(" ", "").replace("_", "").replace("-", "")
-    if gt in BANNED_GPU or "B200" in gt:
-        return False
     if w == "RTXPRO6000":
         # Prefer Blackwell Server Edition naming; accept Shadeform's RTXPro6000.
         if gt == "RTXPRO6000":
@@ -248,7 +244,7 @@ def pick_instance_type(types: list[dict[str, Any]], prefer: str) -> dict[str, An
             return found[0]
     sys.exit(
         f"no available 1-GPU Ubuntu CUDA instance types along "
-        f"{chain} (prefer={prefer}); refusing B200"
+        f"{chain} (prefer={prefer})"
     )
 
 
@@ -428,12 +424,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     c = sub.add_parser(
         "create",
-        help="create one GPU (RTXPro6000 → H200 → H100 → L40S)",
+        help="create one GPU (RTXPro6000 → B200 → H200 → H100 → L40S)",
     )
     c.add_argument(
         "--gpu",
         default="RTXPro6000",
-        help="preferred gpu_type (default RTXPro6000; then H200/H100/L40S)",
+        help="preferred gpu_type (default RTXPro6000; then B200/H200/H100/L40S)",
     )
     c.add_argument(
         "--timeout",

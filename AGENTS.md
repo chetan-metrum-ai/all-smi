@@ -18,7 +18,7 @@ Workflow (scripts live in `scripts/dev/`, written by Metrum AI):
 
 ```sh
 python3 scripts/dev/shadeform.py status        # refuse to double-rent; reuse a live box
-python3 scripts/dev/shadeform.py create        # RTXPro6000 -> H200 -> H100 -> L40S (B200 banned)
+python3 scripts/dev/shadeform.py create        # RTXPro6000 -> B200 -> H200 -> H100 -> L40S
 scripts/dev/gpu-setup.sh                       # once per box: toolchain, libdrm, DCGM, torch
 scripts/dev/gpu-test.sh                        # sync, release build, tests, GPM parity, doctor
 scripts/dev/gpu-run.sh cargo test --release --test library_api_test           # default parallelism; includes NVML race regression
