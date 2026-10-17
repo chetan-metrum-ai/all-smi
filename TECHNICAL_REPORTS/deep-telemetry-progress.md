@@ -358,3 +358,21 @@ Redacted command logs and crash-vs-final evidence are in `TECHNICAL_REPORTS/runs
 #### Follow-up Shadeform instance and cost
 
 H100 instance `06f2a92e-9d9b-4d6f-aed1-7b1ac454af60` (driver 580.126.09, $2.73/hour) was created at 15:31:00 UTC, deleted after validation at approximately 15:55 UTC, and confirmed absent by the final status check. Estimated rental cost was **about $1.10**; billing granularity may vary. Redacted follow-up logs are in `TECHNICAL_REPORTS/runs/v0.27.1-metrum.1-followups/`.
+
+## Issue #11 — DCGM hostengine reconnect after sampling failure
+
+`src/device/readers/dcgm.rs` now discards the session on a DCGM sampling error, records the failure in the existing per-plugin retry backoff, and retries session creation when the deadline elapses. A successful sampling call clears the backoff. The remote test stops the external hostengine while an API process is sampling, checks the DCGM source disappears and create attempts are throttled, then starts the hostengine and checks that the DCGM source returns and retry state resets.
+
+### Shadeform validation (RTX PRO 6000 Blackwell)
+
+Shadeform RTXPro6000 instance `dd20cf7a-71ba-4402-acec-f3f1054536b4`, $2.19/hour, created 2026-10-17 04:03:58 UTC and deleted 04:20 UTC after validation (estimated rental cost about **$0.60**, provider billing granularity may vary). The final status reported no local instance state. GPU: NVIDIA RTX PRO 6000 Blackwell Server Edition; driver 580.126.09 / CUDA 13.0; DCGM 4.7.0; `rustc 1.99.1 (58cf8f9c3 2026-10-13)`.
+
+- `cargo build --release --workspace`: passed, including both `liball_smi_amd.so` and `liball_smi_dcgm.so`.
+- `cargo test --release -- --test-threads=1`: all test targets passed; main crate library suite 1,893 passed, binary suite 2,090 passed, all integration/plugin/doc targets passed (2 ignored in the binary suite).
+- Default-parallel `cargo test --release --test library_api_test`: 10/10 runs passed, each 26 passed / 0 failed.
+- Issue-specific hostengine outage/recovery test: initial DCGM source returned; during 30 outage polls the session was discarded, with 5 create attempts and 25 backoff skips; after hostengine recovery the DCGM source returned on poll 2, with backoff reset. The initial refused connection in the log is the expected hostengine stop.
+- `all-smi doctor --only nvidia.gpm,nvidia.dcgm`: 4 pass, 0 warnings/failures/skips. `remote-release-smoke.sh` also passed AMD doctor (3 pass / 5 expected skips) and AMD plugin tests (12 passed).
+- Live scrape showed 20 `source="gpm"` series by default and 13 `source="dcgm"` series with GPM disabled and DCGM fallback enabled.
+- Captured dmesg showed no NVRM Xid/assert or RCU stall. It included an NVIDIA NVSwitch kernel/user version mismatch (kernel driver 580.126.09 vs user driver 590.48.01); no associated crash or stall occurred.
+
+Redacted command logs, GPU-test artifacts, reconnect trace, scrape output, and dmesg are in `TECHNICAL_REPORTS/runs/issue-11-dcgm-reconnect/` and `TECHNICAL_REPORTS/runs/2026-10-17T040809Z/`; both run directories were checked for IPv4 literals.

@@ -1,0 +1,5 @@
+RUN: bash scripts/dev/gpu-run.sh bash scripts/dev/remote-dcgm-reconnect-backoff.sh
+curl: (7) Failed to connect to <redacted-ip> port 9193 after 0 ms: Connection refused
+hostengine-initial source=dcgm ready_poll=3
+hostengine-down polls=30 discarded_sessions=1 create_attempts=5 backoff_skips=25
+hostengine-recovered source=dcgm recovery_poll=2 create_attempts=6 backoff_skips=26 backoff_resets=1
