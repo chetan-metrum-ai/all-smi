@@ -1,0 +1,8 @@
+running shadeform-create
+running gpu-setup
+running gpu-test
+running workspace-build
+running library-api-10x
+running remote-release-smoke
+running dmesg-safeguard
+Shadeform GPU validation passed

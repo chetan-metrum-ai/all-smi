@@ -492,6 +492,17 @@ The CI builds for these platforms:
 - Falls back to `nvidia-smi` parsing when NVML unavailable
 - Located in `src/device/readers/nvidia.rs`
 
+#### Shadeform GPU validation
+
+Maintainers can run the paid NVIDIA validation workflow manually from the `main` branch using **Actions → Shadeform GPU Validation → Run workflow**. It does not run for pull requests, pushes, releases, or tags and does not gate tagging/release; a release remains a human decision. Concurrent runs are serialized. The Shadeform selector uses RTXPro6000 → B200 → H200 → H100 → L40S preference order and refuses candidates whose price is unknown or exceeds $3.00/hour. The job has a 60-minute overall timeout and a 50-minute validation-step timeout; estimated provider charges are capped around $3 per run, subject to provider billing granularity. The instance is deleted on normal completion, test failure, and workflow cancellation, with a second `if: always()` cleanup path.
+
+In GitHub, open **Settings → Secrets and variables → Actions → New repository secret** and configure these repository Actions secrets before dispatching (this workflow does not create or modify secrets):
+
+- `SHADEFORM_API_KEY`: Shadeform API key with permission to list GPU types, register/use the SSH public key, create an instance, and delete it.
+- `SHADEFORM_SSH_PRIVATE_KEY`: unencrypted OpenSSH private key whose public key can be registered in the same Shadeform account. Keep the secret private; the workflow derives and registers the public key on its ephemeral runner.
+
+The workflow uploads only redacted text logs and JSON evidence as a 14-day artifact. It never uploads the SSH private key or local Shadeform state. When run locally, `scripts/dev/shadeform.py` continues to support the git-ignored `env.json`; CI injects `SHADEFORM_API_KEY` via the environment instead.
+
 ### Apple Silicon Support
 
 - Uses `powermetrics` for hardware metrics (requires sudo)

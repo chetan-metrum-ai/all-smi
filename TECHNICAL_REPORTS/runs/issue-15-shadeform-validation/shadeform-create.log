@@ -1,0 +1,14 @@
+creating RTXPro6000 RTXPro6000 in massedcompute/kansascity-usa-6 os=ubuntu22.04_cuda13.0_shade_os hourly_price_cents=219.0 hourly_price_usd=2.19 ssh_key_id=9980a8c6-a322-4db9-a340-b624c5183e3d
+created id=b8aec863-e837-4e1a-ab99-a7c60792ab34; polling until active...
+  status=creating ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending_provider ip=None
+  status=pending ip=None
+  status=pending ip=None
+  status=pending ip=None
+  status=active ip=<redacted-ip>
+instance active: {"id": "b8aec863-e837-4e1a-ab99-a7c60792ab34", "ip": "<redacted-ip>", "ssh_user": "shadeform", "ssh_port": 22, "shade_instance_type": "RTXPro6000", "gpu_type": "RTXPro6000", "cloud": "massedcompute", "region": "kansascity-usa-6", "os": "ubuntu22.04_cuda13.0_shade_os", "hourly_price": 219, "hourly_price_usd": 2.19, "created_at": "2026-10-17T07:47:40.711055+00:00", "status": "active"}
