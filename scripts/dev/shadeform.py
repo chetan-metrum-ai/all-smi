@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -35,6 +36,13 @@ SSH_PUB_PATH = REPO_ROOT / ".shadeform_ed25519.pub"
 INSTANCE_NAME = "metrum-allsmi-dev"
 
 def load_api_key() -> str:
+    # CI injects this as a masked environment secret; local development keeps
+    # using the git-ignored env.json file. Never print either value.
+    env_key = os.environ.get("SHADEFORM_API_KEY")
+    if env_key is not None:
+        if not env_key.strip():
+            sys.exit("SHADEFORM_API_KEY environment variable is empty")
+        return env_key.strip()
     if not ENV_PATH.is_file():
         sys.exit(f"missing {ENV_PATH}; expected {{\"SHADEFORM_API_KEY\": \"...\"}}")
     with ENV_PATH.open("r", encoding="utf-8") as f:
@@ -167,14 +175,23 @@ def _gpu_type_matches(gpu_type: str, want: str) -> bool:
     return gt == w
 
 
-def pick_instance_type(types: list[dict[str, Any]], prefer: str) -> dict[str, Any]:
-    """Pick cheapest available 1-GPU Ubuntu CUDA instance along the preference chain.
+def pick_instance_type(
+    types: list[dict[str, Any]],
+    prefer: str,
+    max_hourly_price_usd: float | None = None,
+) -> dict[str, Any]:
+    """Pick a preferred available 1-GPU Ubuntu CUDA instance under the optional rate cap.
 
     Tries `prefer` first, then the remainder of GPU_PREFERENCE_CHAIN.
     Shadeform `/instances/types` returns `availability` as a list of
     `{region, available, ...}` and `configuration.os_options` for images.
-    `hourly_price` is in US cents.
+    `hourly_price` is in US cents. When a cap is provided, unknown prices are
+    rejected rather than treated as safe.
     """
+    if max_hourly_price_usd is not None and (
+        not math.isfinite(max_hourly_price_usd) or max_hourly_price_usd <= 0
+    ):
+        raise ValueError("max hourly price must be a positive finite number")
 
     def candidates(want: str) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
@@ -205,6 +222,10 @@ def pick_instance_type(types: list[dict[str, Any]], prefer: str) -> dict[str, An
                 price_f = float(price) if price is not None else float("inf")
             except (TypeError, ValueError):
                 price_f = float("inf")
+            if max_hourly_price_usd is not None and (
+                not math.isfinite(price_f) or price_f > max_hourly_price_usd * 100
+            ):
+                continue
             for avail in t.get("availability") or []:
                 if not isinstance(avail, dict) or not avail.get("available"):
                     continue
@@ -244,7 +265,7 @@ def pick_instance_type(types: list[dict[str, Any]], prefer: str) -> dict[str, An
             return found[0]
     sys.exit(
         f"no available 1-GPU Ubuntu CUDA instance types along "
-        f"{chain} (prefer={prefer})"
+        f"{chain} (prefer={prefer}, max_hourly_price_usd={max_hourly_price_usd})"
     )
 
 
@@ -271,7 +292,7 @@ def cmd_create(args: argparse.Namespace) -> None:
     if not types:
         sys.exit("no instance types returned")
 
-    pick = pick_instance_type(types, args.gpu)
+    pick = pick_instance_type(types, args.gpu, args.max_hourly_price_usd)
     body = {
         "cloud": pick["cloud"],
         "region": pick["region"],
@@ -340,6 +361,19 @@ def cmd_create(args: argparse.Namespace) -> None:
             }
         )
         save_state(state)
+        if args.max_hourly_price_usd is not None:
+            try:
+                actual_hourly_price = float(state["hourly_price"])
+            except (TypeError, ValueError):
+                actual_hourly_price = float("inf")
+            if (
+                not math.isfinite(actual_hourly_price)
+                or actual_hourly_price > args.max_hourly_price_usd * 100
+            ):
+                sys.exit(
+                    "created instance price is unknown or exceeds "
+                    f"${args.max_hourly_price_usd:.2f}/hour; refusing to continue"
+                )
         print(f"  status={status} ip={ip}", flush=True)
         if str(status).lower() == "active" and ip:
             print(f"instance active: {json.dumps({k: state[k] for k in state if k != 'raw'})}")
@@ -418,6 +452,16 @@ def cmd_delete(args: argparse.Namespace) -> None:
     print("deleted; cleared .shadeform-state.json")
 
 
+def _positive_finite_usd(value: str) -> float:
+    try:
+        amount = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive finite USD amount") from exc
+    if not math.isfinite(amount) or amount <= 0:
+        raise argparse.ArgumentTypeError("must be a positive finite USD amount")
+    return amount
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -436,6 +480,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=1800,
         help="seconds to wait for active status",
+    )
+    c.add_argument(
+        "--max-hourly-price-usd",
+        type=_positive_finite_usd,
+        default=None,
+        help="skip types with unknown or higher hourly price, then try the next GPU preference",
     )
     c.set_defaults(func=cmd_create)
 

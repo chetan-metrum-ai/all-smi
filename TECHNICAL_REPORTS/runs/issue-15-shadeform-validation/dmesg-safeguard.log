@@ -1,0 +1,4 @@
+GPU 0: NVIDIA RTX PRO 6000 Blackwell Server Edition (UUID: GPU-0aa32fd4-9915-15aa-2f14-efb84fde3fe6)
+[Sat Oct 17 07:48:50 2026] NVRM: loading NVIDIA UNIX Open Kernel Module for x86_64  580.126.09  Release Build  (dvs-builder@U22-I3-AM02-24-3)  Wed Jan  7 22:51:36 UTC 2026
+[Sat Oct 17 07:48:51 2026] NVRM: kbifInitLtr_GB202: LTR is disabled in the hierarchy
+dmesg safeguard passed
