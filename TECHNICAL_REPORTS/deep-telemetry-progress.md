@@ -392,3 +392,13 @@ Redacted command logs, GPU-test artifacts, reconnect trace, scrape output, and d
 - Captured dmesg had no NVRM Xid/assert or RCU stall. IPv4 literals were checked absent from run artifacts.
 
 Redacted logs are in `TECHNICAL_REPORTS/runs/issue-12-sudo/` and `TECHNICAL_REPORTS/runs/2026-10-17T044624Z/`.
+
+#### macOS CI cfg correction — final-tree revalidation (2026-10-17)
+
+The first PR CI run caught that `sudo_command_available`, referenced only by Linux tests, was compiled on macOS and failed `-D dead-code`. Restricted the helper to `#[cfg(all(test, target_os = "linux"))]` and reran validation on the final tree before pushing the correction.
+
+- Local `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and full `cargo test -p all-smi`: passed (library 2,091 passed / 2 ignored; all integration and doctests passed).
+- Shadeform RTX PRO 6000 Blackwell Server Edition, driver 580.126.09 / CUDA 13.0 / DCGM 4.7.0 / `rustc 1.99.1 (58cf8f9c3 2026-10-13)`. `gpu-test.sh`, `cargo build --release --workspace`, and `cargo test --release -- --test-threads=1` passed. Ten default-parallel `library_api_test` runs passed 26/26 each.
+- `remote-release-smoke.sh`: NVIDIA doctor 4 pass / 0 fail; AMD doctor 3 pass / 0 fail / 5 expected skips; AMD plugin tests 12/12; live scrapes emitted 20 `source="gpm"` series and 13 `source="dcgm"` fallback series. `nvidia-smi` remained responsive; dmesg safeguard captured after the successful run.
+- Instance `82adcfcc-8f0d-46fa-9ca9-152f5ba5b96a`, created 05:16:06 UTC at $2.19/hour, was deleted and Shadeform status confirmed no local state. Estimated runtime rental cost approximately $0.63; billing granularity may vary.
+- Evidence is in `TECHNICAL_REPORTS/runs/issue-12-sudo-recheck/` and `TECHNICAL_REPORTS/runs/2026-10-17T052031Z/`; the transient instance IP is redacted from command logs.

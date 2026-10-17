@@ -83,7 +83,7 @@ fn run_sudo_validation(command: &str) -> io::Result<bool> {
         .map(|status| status.success())
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 fn sudo_command_available() -> bool {
     new_command("sudo").arg("--version").output().is_ok()
 }
