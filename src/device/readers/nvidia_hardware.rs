@@ -342,7 +342,7 @@ pub(crate) fn nvlink_remote_type_from_wrapper(value: IntDeviceType) -> NvLinkRem
 /// Any error (symbol missing, `NotSupported`, `InvalidArg`) degrades to
 /// `false` so the caller never emits GPM metrics for a non-GPM device.
 ///
-/// Live sampling lives in [`crate::device::readers::nvidia_gpm::GpmState`].
+/// Live sampling is handled by the crate-private collector in `nvidia_gpm`.
 pub fn gpm_is_supported(device: &nvml_wrapper::Device) -> bool {
     device.gpm_support().unwrap_or(false)
 }

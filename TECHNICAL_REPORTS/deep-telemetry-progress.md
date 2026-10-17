@@ -346,7 +346,7 @@ Redacted command logs and crash-vs-final evidence are in `TECHNICAL_REPORTS/runs
 
 `src/device/readers/dcgm.rs` now tracks a per-plugin host-side `CreateSessionBackoff`: failed `create_session` calls schedule retries after 1, 2, 4, 8, 16, 32, then 60 seconds repeatedly; successful session creation clears the failure count/deadline. The monotonic deadline logic is tested with injected `Instant` values, and a pure schedule test checks the cap without loading DCGM.
 
-`GPM_API_LOCK` remains in `src/device/readers/nvidia_gpm.rs`. The in-crate `collect`, `free_all`, and doctor `probe_two_sample` paths are reached under `nvidia_nvml::API_LOCK`, but these helpers and `GpmState` remain public and downstream callers can invoke them with their own `Nvml` handle outside that lock. The GPM mutex therefore still protects those direct callers. In-crate nesting is consistently `API_LOCK` → `GPM_API_LOCK`; the GPM code never acquires the NVML lock, so it introduces no reverse lock order.
+At this stage, `GPM_API_LOCK` was retained because the public `GpmState::{collect, free_all}` and `probe_two_sample` helpers accepted arbitrary NVML handles and could bypass `nvidia_nvml::API_LOCK`. Issue #13 later restricts those sample entry points to the crate: the audited reader and doctor callers run only inside `with_shared_nvml` closures. This removes the bypass instead of maintaining a second GPM lock, while keeping all GPM samples serialized against other in-crate NVML operations. No in-tree callers outside the crate were found; direct use of these low-level helpers is an intentional public API break.
 
 #### Follow-up validation
 
@@ -402,3 +402,16 @@ The first PR CI run caught that `sudo_command_available`, referenced only by Lin
 - `remote-release-smoke.sh`: NVIDIA doctor 4 pass / 0 fail; AMD doctor 3 pass / 0 fail / 5 expected skips; AMD plugin tests 12/12; live scrapes emitted 20 `source="gpm"` series and 13 `source="dcgm"` fallback series. `nvidia-smi` remained responsive; dmesg safeguard captured after the successful run.
 - Instance `82adcfcc-8f0d-46fa-9ca9-152f5ba5b96a`, created 05:16:06 UTC at $2.19/hour, was deleted and Shadeform status confirmed no local state. Estimated runtime rental cost approximately $0.63; billing granularity may vary.
 - Evidence is in `TECHNICAL_REPORTS/runs/issue-12-sudo-recheck/` and `TECHNICAL_REPORTS/runs/2026-10-17T052031Z/`; the transient instance IP is redacted from command logs.
+
+## Issue #13 — public GPM helpers bypass the process-wide NVML lock
+
+`GpmState` and `probe_two_sample` were public despite requiring every NVML/GPM operation to run under the process-wide `API_LOCK`. A downstream caller could pass an unrelated `Nvml::init()` handle and bypass serialization, reintroducing the GPM/NVML race and also risking process-global shutdown on drop. The repository audit found the only sampling call sites in `NvidiaGpuReader` and the NVIDIA doctor check; both are invoked inside `with_shared_nvml` closures. These sampling entry points and the state type are now `pub(crate)`, while the pure `has_activity_metrics` helper remains public. `GPM_API_LOCK` is removed because the one shared lock now protects all in-crate GPM operations against all other NVML calls. The visibility change intentionally breaks direct use of these low-level helpers; consumers should use the supported `AllSmi` APIs.
+
+### Validation
+
+- Local `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and full `cargo test -p all-smi`: passed (library 2,091 passed / 2 ignored; integration and doctests passed).
+- `cargo doc -p all-smi --no-deps` completed. It reports pre-existing rustdoc warnings elsewhere; the GPM-specific private-type link was corrected, and the generated public GPM module docs omit `GpmState` and `probe_two_sample`.
+- Shadeform RTX PRO 6000 Blackwell Server Edition, driver 580.126.09 / CUDA 13.0 / DCGM 4.7.0 / `rustc 1.99.1 (58cf8f9c3 2026-10-13)`. `gpu-test.sh`, `cargo build --release --workspace`, and default-parallel `cargo test --release` passed. Ten default-parallel `library_api_test` runs passed 26/26 each.
+- `remote-release-smoke.sh`: NVIDIA doctor 4 pass / 0 fail; AMD doctor 3 pass / 0 fail / 5 expected skips; AMD plugin tests 12/12. Live scrapes emitted 20 `source="gpm"` series and 13 `source="dcgm"` fallback series. Captured dmesg has no Xid, GPU reset, segfault, RCU stall, or `BUG:` matches.
+- Shadeform instance `e661fd0e-8d2e-44f3-8d4c-a348414a4eba` was created at 05:57:16 UTC at $2.19/hour, deleted at 06:13:05 UTC, and confirmed absent by status; estimated runtime cost about $0.58 (billing granularity may vary).
+- Evidence is in `TECHNICAL_REPORTS/runs/issue-13-gpm-lock/` and `TECHNICAL_REPORTS/runs/2026-10-17T060128Z/`; the transient instance IP is redacted from logs.

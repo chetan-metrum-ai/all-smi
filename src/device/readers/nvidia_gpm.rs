@@ -25,11 +25,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 // nvml-wrapper explicitly documents GpmSample operations as not thread-safe.
-// Keep this lock even though the in-crate call paths hold nvidia_nvml::API_LOCK:
-// GpmState::collect/free_all and probe_two_sample are public and can be called
-// directly with a separate Nvml handle by downstream users. Internal lock
-// order is always API_LOCK then GPM_API_LOCK; do not acquire API_LOCK here.
-static GPM_API_LOCK: Mutex<()> = Mutex::new(());
+// Keep the sampling entry points crate-private and call them only from
+// with_shared_nvml closures, so nvidia_nvml::API_LOCK serializes them against
+// every other in-crate NVML operation.
 
 /// Env var that disables the NVML GPM collector entirely when set to a
 /// non-empty value other than `0` / `false` / `no`.
@@ -78,19 +76,19 @@ const IDS: &[GpmMetricId] = &[
 ///
 /// Handles are stored as `usize` bits from [`GpmSample::into_handle`] so this
 /// crate never names `nvml-wrapper`'s private FFI sample type.
-pub struct GpmState {
+pub(crate) struct GpmState {
     prev: Mutex<HashMap<String, usize>>,
 }
 
 impl GpmState {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             prev: Mutex::new(HashMap::new()),
         }
     }
 
     /// `true` when the operator has forced GPM off.
-    pub fn is_disabled() -> bool {
+    fn is_disabled() -> bool {
         match std::env::var(DISABLE_GPM_ENV_VAR) {
             Ok(v) => {
                 let v = v.trim().to_ascii_lowercase();
@@ -109,8 +107,7 @@ impl GpmState {
     /// issue #5), we immediately take a second sample after a short gap and
     /// return the computed metrics. Subsequent polls reuse the cached
     /// handle with no extra sleep.
-    pub fn collect(&self, nvml: &Nvml, device: &Device<'_>) -> Option<GpmMetrics> {
-        let _gpm_guard = GPM_API_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    pub(crate) fn collect(&self, nvml: &Nvml, device: &Device<'_>) -> Option<GpmMetrics> {
         if Self::is_disabled() {
             return None;
         }
@@ -164,7 +161,7 @@ impl GpmState {
     }
 
     /// Whether this reader currently owns cached NVML sample handles.
-    pub fn has_samples(&self) -> bool {
+    pub(crate) fn has_samples(&self) -> bool {
         self.prev
             .lock()
             .map(|samples| !samples.is_empty())
@@ -174,7 +171,7 @@ impl GpmState {
     /// Drop every cached handle without freeing (NVML library unavailable).
     /// Leaks the underlying NVML sample allocations; only used if cleanup
     /// cannot access the process-wide handle.
-    pub fn abandon(&self) {
+    pub(crate) fn abandon(&self) {
         if let Ok(mut map) = self.prev.lock() {
             map.clear();
         }
@@ -182,8 +179,7 @@ impl GpmState {
 
     /// Free every cached sample through `nvml`. Call before the reader drops
     /// while the NVML library is still alive.
-    pub fn free_all(&self, nvml: &Nvml) {
-        let _gpm_guard = GPM_API_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    pub(crate) fn free_all(&self, nvml: &Nvml) {
         let Ok(mut map) = self.prev.lock() else {
             return;
         };
@@ -207,8 +203,11 @@ impl Default for GpmState {
 /// that never populate activity fields). Temporary sample handles are freed
 /// before returning. Returns `None` when GPM is disabled, unsupported, or
 /// either sample / `gpm_metrics_get` fails.
-pub fn probe_two_sample(nvml: &Nvml, device: &Device<'_>, gap: Duration) -> Option<GpmMetrics> {
-    let _gpm_guard = GPM_API_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+pub(crate) fn probe_two_sample(
+    nvml: &Nvml,
+    device: &Device<'_>,
+    gap: Duration,
+) -> Option<GpmMetrics> {
     if GpmState::is_disabled() {
         return None;
     }
