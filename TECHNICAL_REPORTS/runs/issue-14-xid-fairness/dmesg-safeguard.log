@@ -1,0 +1,15 @@
+[Sat Oct 17 06:36:58 2026] nvidia: loading out-of-tree module taints kernel.
+[Sat Oct 17 06:36:58 2026] nvidia: module verification failed: signature and/or required key missing - tainting kernel
+[Sat Oct 17 06:36:58 2026] nvidia-nvlink: Nvlink Core is being initialized, major device number 237
+[Sat Oct 17 06:37:00 2026] NVRM: loading NVIDIA UNIX Open Kernel Module for x86_64  580.126.09  Release Build  (dvs-builder@U22-I3-AM02-24-3)  Wed Jan  7 22:51:36 UTC 2026
+[Sat Oct 17 06:37:00 2026] nvidia-modeset: Loading NVIDIA UNIX Open Kernel Mode Setting Driver for x86_64  580.126.09  Release Build  (dvs-builder@U22-I3-AM02-24-3)  Wed Jan  7 22:33:56 UTC 2026
+[Sat Oct 17 06:37:00 2026] [drm] [nvidia-drm] [GPU ID 0x00000100] Loading driver
+[Sat Oct 17 06:37:01 2026] NVRM: kbifInitLtr_GB202: LTR is disabled in the hierarchy
+[Sat Oct 17 06:37:02 2026] [drm] Initialized nvidia-drm 0.0.0 20160202 for 0000:01:00.0 on minor 1
+[Sat Oct 17 06:37:02 2026] nvidia 0000:01:00.0: [drm] No compatible format found
+[Sat Oct 17 06:37:02 2026] nvidia 0000:01:00.0: [drm] Cannot find any crtc or sizes
+[Sat Oct 17 06:37:02 2026] systemd[1]: /etc/systemd/system/nvidia-cdi-refresh.service:26: Ignoring unknown escape sequences: "/(nvidia|nvidia-current)\.ko[:]"
+[Sat Oct 17 06:37:02 2026] audit: type=1400 audit(1792219022.649:3): apparmor="STATUS" operation="profile_load" profile="unconfined" name="nvidia_modprobe" pid=709 comm="apparmor_parser"
+[Sat Oct 17 06:37:02 2026] audit: type=1400 audit(1792219022.649:4): apparmor="STATUS" operation="profile_load" profile="unconfined" name="nvidia_modprobe//kmod" pid=709 comm="apparmor_parser"
+[Sat Oct 17 06:38:20 2026] systemd[1]: /etc/systemd/system/nvidia-cdi-refresh.service:26: Ignoring unknown escape sequences: "/(nvidia|nvidia-current)\.ko[:]"
+[Sat Oct 17 06:39:01 2026] nvidia-nvswitch: Version mismatch, kernel version 580.126.09 user version 590.48.01
