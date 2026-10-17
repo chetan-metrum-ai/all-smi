@@ -376,3 +376,29 @@ Shadeform RTXPro6000 instance `dd20cf7a-71ba-4402-acec-f3f1054536b4`, $2.19/hour
 - Captured dmesg showed no NVRM Xid/assert or RCU stall. It included an NVIDIA NVSwitch kernel/user version mismatch (kernel driver 580.126.09 vs user driver 590.48.01); no associated crash or stall occurred.
 
 Redacted command logs, GPU-test artifacts, reconnect trace, scrape output, and dmesg are in `TECHNICAL_REPORTS/runs/issue-11-dcgm-reconnect/` and `TECHNICAL_REPORTS/runs/2026-10-17T040809Z/`; both run directories were checked for IPv4 literals.
+
+## Issue #12 — missing sudo executable
+
+`src/utils/system.rs` routes the interactive `sudo -v` invocation through a fallible helper. If the `sudo` process cannot be spawned (for example, the executable is absent), the application prints an explicit “install sudo or run all-smi directly as root” message followed by the existing privilege troubleshooting, then exits through the normal failure path rather than panicking. The hardware-dependent sudo tests avoid entering that path on a non-root Linux host when sudo is not installed. A regression test verifies a missing executable is reported as `io::ErrorKind::NotFound` rather than unwinding.
+
+### Validation
+
+- Local `cargo fmt --all -- --check`, `cargo clippy -p all-smi --all-targets -- -D warnings`, full `cargo test -p all-smi`, and the missing-sudo regression test passed.
+- Shadeform RTX PRO 6000 Blackwell Server Edition, driver 580.126.09 / CUDA 13.0, DCGM 4.7.0, `rustc 1.99.1 (58cf8f9c3 2026-10-13)`. The instance `6febe5fc-5de1-48dc-85c7-216d96187c15` ($2.19/hour) was created at 04:42:25 UTC, deleted at approximately 04:58 UTC after validation, and confirmed absent by the final status; estimated rental cost **about $0.56**, billing granularity may vary.
+- `cargo build --release --workspace`: passed with both plugin libraries.
+- `cargo test --release -- --test-threads=1`: passed all targets (library 1,894 passed / 1 ignored; binary 2,091 passed / 2 ignored; remaining integration, plugin, and doctest targets passed).
+- Default-parallel `cargo test --release --test library_api_test`: 10/10 runs passed, each 26 passed / 0 failed.
+- `gpu-test.sh` passed; live GPM parity 2/2; `doctor --only nvidia.gpm,nvidia.dcgm` 4 pass; AMD doctor 3 pass / 5 expected skips; AMD plugin 12/12. `remote-release-smoke.sh` showed 20 `source="gpm"` series by default and 13 `source="dcgm"` with fallback enabled.
+- Captured dmesg had no NVRM Xid/assert or RCU stall. IPv4 literals were checked absent from run artifacts.
+
+Redacted logs are in `TECHNICAL_REPORTS/runs/issue-12-sudo/` and `TECHNICAL_REPORTS/runs/2026-10-17T044624Z/`.
+
+#### macOS CI cfg correction — final-tree revalidation (2026-10-17)
+
+The first PR CI run caught that `sudo_command_available`, referenced only by Linux tests, was compiled on macOS and failed `-D dead-code`. Restricted the helper to `#[cfg(all(test, target_os = "linux"))]` and reran validation on the final tree before pushing the correction.
+
+- Local `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and full `cargo test -p all-smi`: passed (library 2,091 passed / 2 ignored; all integration and doctests passed).
+- Shadeform RTX PRO 6000 Blackwell Server Edition, driver 580.126.09 / CUDA 13.0 / DCGM 4.7.0 / `rustc 1.99.1 (58cf8f9c3 2026-10-13)`. `gpu-test.sh`, `cargo build --release --workspace`, and `cargo test --release -- --test-threads=1` passed. Ten default-parallel `library_api_test` runs passed 26/26 each.
+- `remote-release-smoke.sh`: NVIDIA doctor 4 pass / 0 fail; AMD doctor 3 pass / 0 fail / 5 expected skips; AMD plugin tests 12/12; live scrapes emitted 20 `source="gpm"` series and 13 `source="dcgm"` fallback series. `nvidia-smi` remained responsive; dmesg safeguard captured after the successful run.
+- Instance `82adcfcc-8f0d-46fa-9ca9-152f5ba5b96a`, created 05:16:06 UTC at $2.19/hour, was deleted and Shadeform status confirmed no local state. Estimated runtime rental cost approximately $0.63; billing granularity may vary.
+- Evidence is in `TECHNICAL_REPORTS/runs/issue-12-sudo-recheck/` and `TECHNICAL_REPORTS/runs/2026-10-17T052031Z/`; the transient instance IP is redacted from command logs.
