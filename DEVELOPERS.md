@@ -666,7 +666,7 @@ Downloadable binaries for the Metrum deep-telemetry fork are built by
 on GitHub-hosted runners only (linux x86_64 gnu/musl, linux aarch64, macos
 aarch64 unsigned). Assets land on
 https://github.com/chetan-metrum-ai/all-smi/releases under tags like
-`v0.27.1-metrum.1`. Prefer `all-smi-linux-x86_64.tar.gz` on GPU servers.
+`v0.27.1-metrum.2`. Prefer `all-smi-linux-x86_64.tar.gz` on GPU servers.
 
 Do not use the upstream `release.yml` on this fork: it requires self-hosted
 Windows/Intel-Mac runners, Apple notarization secrets, and Homebrew/PPA jobs
