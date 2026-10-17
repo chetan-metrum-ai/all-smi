@@ -224,15 +224,40 @@ fn sample_map(plugin: &LoadedPlugin) -> Result<HashMap<String, DcgmGpuSample>, S
             ));
         }
         session.handle = handle;
-        session.create_backoff.reset();
-        tracing::debug!("DCGM hostengine session created; retry backoff reset");
+        tracing::debug!("DCGM hostengine session created");
     }
     let handle = session.handle;
-    let envelope: SampleEnvelope = read_buffer(&plugin.api, |out| {
+    let envelope: SampleEnvelope = match read_buffer(&plugin.api, |out| {
         let sample = plugin.api.sample_json.expect("validated function pointer");
         // SAFETY: handle owned by this plugin; out points to live buffer desc.
         unsafe { sample(handle, out) }
-    })?;
+    }) {
+        Ok(envelope) => envelope,
+        Err(error) => {
+            let destroy = plugin
+                .api
+                .destroy_session
+                .expect("validated function pointer");
+            // SAFETY: handle was created by this plugin and is still owned by
+            // this session. A failed sample may mean hostengine lost it.
+            unsafe { destroy(handle) };
+            session.handle = std::ptr::null_mut();
+            let delay = session.create_backoff.record_failure_at(Instant::now());
+            tracing::warn!(
+                error = %error,
+                retry_after_secs = delay.as_secs(),
+                "DCGM sample failed; discarded session and will reconnect"
+            );
+            return Err(format!(
+                "dcgm sample failed; discarded session (retry in {}s): {error}",
+                delay.as_secs()
+            ));
+        }
+    };
+    if session.create_backoff.consecutive_failures > 0 {
+        session.create_backoff.reset();
+        tracing::debug!("DCGM sample succeeded; retry backoff reset");
+    }
     Ok(envelope
         .gpus
         .into_iter()

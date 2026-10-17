@@ -1,0 +1,5 @@
+GPU setup completed successfully.
+GPU: NVIDIA RTX PRO 6000 Blackwell Server Edition.
+Driver: 580.126.09 (CUDA 13.0).
+DCGM: 4.7.0.
+rustc: 1.99.1 (58cf8f9c3 2026-10-13).
