@@ -270,6 +270,23 @@ Single MI325X in `tor1` (`gpu-mi325x1-256gb`, image `gpu-amd-base`, droplet `607
 
 Same-moment readings: hwmon `power1_input` 133000000 µW, `rocm-smi` 134.0 W, `all_smi_gpu_power_consumption_watts` 133. Device id `0x74b9`, ASIC `GFX940/MI300`, SKU `M3250101`. `doctor --only amd` loaded plugin 0.27.0. `amd.rocm.version` still skipped. Droplet deleted after the check.
 
+## Proposed sync v0.27.1-metrum.2 (not tagged)
+
+Sync upstream main at `4319b4a` (`fix: ignore frozen Xe GT idle counters in utilization fallback (#458)`), after v0.27.1. The change ignores frozen Intel Xe GT idle counters in the utilization fallback; no issue #11-#16 overlap was identified. Plugin crate version already matches main (`0.27.1`). Release tag is intentionally deferred for the human's decision.
+
+### Shadeform validation
+
+RTX PRO 6000 Blackwell Server Edition (Shadeform `RTXPro6000`), driver 580.126.09, CUDA 13.0, DCGM 4.7.0, rustc 1.99.1. Instance `046b41b0-e8f4-4e13-bfcd-f5a1caff46ad` at $2.19/hour was created at 03:24:20 UTC and deleted at 03:40 UTC; estimated cost about $0.58. Shadeform status confirmed no local instance after deletion. Redacted logs are in `TECHNICAL_REPORTS/runs/2026-10-17T032846Z/` and `TECHNICAL_REPORTS/runs/sync-upstream-2026-10-17/`; those run directories contain no IP literals.
+
+- `cargo build --release --workspace`: passed, including `liball_smi_amd.so` and `liball_smi_dcgm.so`.
+- `cargo test --release -- --test-threads=1`: all workspace/default-member suites passed; main crate integration tests include 2,090 passed, 0 failed, 2 ignored.
+- Parallel `cargo test --release --test library_api_test`: 10/10 runs passed, each 26 passed / 0 failed.
+- `all-smi doctor --only nvidia.gpm,nvidia.dcgm`: 4 pass, 0 warnings/failures/skips.
+- `remote-release-smoke.sh`: passed; AMD plugin tests 12 passed; live `/metrics` showed `source="gpm"` by default and `source="dcgm"` with GPM disabled.
+- dmesg check: no NVRM assert/Xid or RCU stall. It did report an `nvidia-nvswitch` kernel/user version mismatch (kernel 580.126.09 vs user 590.48.01); no related crash or stall occurred.
+
+The Shadeform instance was deleted after validation, before waiting on PR CI; status confirmed the state file is clear.
+
 ## Release v0.27.1-metrum.1
 
 Tagged on fork `main` after merging `lablup/main` through `ddfe94c` (upstream tag `v0.27.1`). Merged by Metrum AI.

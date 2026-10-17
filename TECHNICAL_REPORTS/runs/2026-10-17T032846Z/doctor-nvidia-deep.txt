@@ -1,0 +1,10 @@
+all-smi doctor — 0.27.1
+Running 4 checks…
+
+PASS nvidia.dcgm.hostengine           host engine reachable: 1 GPU found (Active).
+PASS nvidia.dcgm.library              dcgmi at /usr/bin/dcgmi; libdcgm present
+PASS nvidia.dcgm.prof_module          dcgmi dmon -e 1002 succeeded (profiling module usable)
+PASS nvidia.gpm.supported             GPM activity metrics sampled on 1 of 1 device(s) that claim support (NVIDIA RTX PRO 6000 Blackwell Server Edition (GPU-6ebde58a-c4f4-6fbb-1bc6-9c602a0596d3))
+
+Summary: 4 pass, 0 warn, 0 fail, 0 skipped
+Exit code: 0
