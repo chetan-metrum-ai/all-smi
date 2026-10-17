@@ -1,0 +1,17 @@
+RUN: bash scripts/dev/gpu-run.sh cargo build --release --workspace
+ Downloading crates ...
+  Downloaded num_enum_derive v0.7.6
+  Downloaded num_enum v0.7.6
+  Downloaded libamdgpu_top v0.11.5
+  Downloaded libdrm_amdgpu_sys v0.8.16
+   Compiling nix v0.31.3
+   Compiling libdrm_amdgpu_sys v0.8.16
+   Compiling num_enum_derive v0.7.6
+   Compiling num_enum v0.7.6
+   Compiling russh-cryptovec v0.62.0
+   Compiling russh v0.63.3
+   Compiling libamdgpu_top v0.11.5
+   Compiling all-smi v0.27.1 (/home/shadeform/all-smi)
+   Compiling all-smi-dcgm-plugin v0.27.1 (/home/shadeform/all-smi/crates/all-smi-dcgm-plugin)
+   Compiling all-smi-amd-plugin v0.27.1 (/home/shadeform/all-smi/crates/all-smi-amd-plugin)
+    Finished `release` profile [optimized] target(s) in 1m 24s
