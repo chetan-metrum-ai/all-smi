@@ -76,6 +76,18 @@ pub fn has_sudo_privileges() -> bool {
         .unwrap_or(false)
 }
 
+fn run_sudo_validation(command: &str) -> io::Result<bool> {
+    new_command(command)
+        .arg("-v")
+        .status()
+        .map(|status| status.success())
+}
+
+#[cfg(test)]
+fn sudo_command_available() -> bool {
+    new_command("sudo").arg("--version").output().is_ok()
+}
+
 #[allow(dead_code)] // Used in runner_old.rs (backup file)
 pub fn calculate_adaptive_interval(node_count: usize) -> u64 {
     // Adaptive interval based on node count to prevent overwhelming the network
@@ -304,12 +316,16 @@ fn request_sudo_with_explanation(platform: SudoPlatform, return_bool: bool) -> b
     io::stdout().flush().unwrap();
 
     // Attempt to get sudo privileges
-    let status = new_command("sudo")
-        .arg("-v")
-        .status()
-        .expect("Failed to execute sudo command");
+    let sudo_succeeded = match run_sudo_validation("sudo") {
+        Ok(succeeded) => succeeded,
+        Err(error) => {
+            println!("❌ Failed to execute sudo command: {error}");
+            println!("   Install sudo or run all-smi directly as root.");
+            false
+        }
+    };
 
-    if !status.success() {
+    if !sudo_succeeded {
         println!("❌ Failed to acquire administrator privileges.");
         println!();
         println!("💡 Troubleshooting:");
@@ -385,14 +401,28 @@ mod tests {
     #[cfg(not(target_os = "macos"))]
     #[test]
     fn test_ensure_sudo_permissions_non_macos() {
+        #[cfg(target_os = "linux")]
+        if unsafe { libc::geteuid() } != 0 && !sudo_command_available() {
+            return;
+        }
         ensure_sudo_permissions();
     }
 
     #[test]
     #[cfg_attr(target_os = "macos", ignore)] // Run with: sudo cargo test -- --ignored
     fn test_ensure_sudo_permissions_with_fallback_returns_bool() {
+        #[cfg(target_os = "linux")]
+        if unsafe { libc::geteuid() } != 0 && !sudo_command_available() {
+            return;
+        }
         let _result = ensure_sudo_permissions_with_fallback();
         // Function should execute without panicking and return a boolean
+    }
+
+    #[test]
+    fn test_missing_sudo_command_returns_error_instead_of_panicking() {
+        let result = run_sudo_validation("all-smi-test-command-that-does-not-exist");
+        assert!(matches!(result, Err(error) if error.kind() == io::ErrorKind::NotFound));
     }
 
     #[test]
