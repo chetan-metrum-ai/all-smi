@@ -415,3 +415,28 @@ The first PR CI run caught that `sudo_command_available`, referenced only by Lin
 - `remote-release-smoke.sh`: NVIDIA doctor 4 pass / 0 fail; AMD doctor 3 pass / 0 fail / 5 expected skips; AMD plugin tests 12/12. Live scrapes emitted 20 `source="gpm"` series and 13 `source="dcgm"` fallback series. Captured dmesg has no Xid, GPU reset, segfault, RCU stall, or `BUG:` matches.
 - Shadeform instance `e661fd0e-8d2e-44f3-8d4c-a348414a4eba` was created at 05:57:16 UTC at $2.19/hour, deleted at 06:13:05 UTC, and confirmed absent by status; estimated runtime cost about $0.58 (billing granularity may vary).
 - Evidence is in `TECHNICAL_REPORTS/runs/issue-13-gpm-lock/` and `TECHNICAL_REPORTS/runs/2026-10-17T060128Z/`; the transient instance IP is redacted from logs.
+
+## Issue #14 — XID watcher lock fairness and event-storm latency
+
+The watcher must serialize NVML event waits against GPM because GPM sample operations are explicitly not thread-safe. It now caps each wait while holding `API_LOCK` at 1 ms (previously 10 ms), then records an event outside the shared NVML critical section. After each received event it yields for 1 ms before retrying, preventing the watcher from continuously reacquiring the non-fair mutex during a queue burst. The no-event/error backoff remains 50 ms. This preserves conservative NVML/GPM serialization while bounding routine lock occupancy and allowing waiting reader threads to run. An actual XID storm was not induced on the rented production-class GPU; deliberately generating GPU fault events would be unsafe. The event-burst fairness protection is therefore assessed by code path, not a destructive hardware test.
+
+### Collection latency profile
+
+Used the existing ignored `tests/perf_tick_stages.rs` hardware benchmark (`PERF_TICKS=30`) on RTX PRO 6000 Blackwell Server Edition, replaying steady-state local collection at one-second cadence. For an A/B/A comparison on the same instance, watcher startup was temporarily disabled only for the middle benchmark, then restored and re-synced before final validation. No temporary benchmark/source changes remain.
+
+| watcher | GPU `get_gpu_info` avg (min–max) | whole collection tick avg (min–max) |
+|---|---:|---:|
+| enabled, first run | 63.546 ms (57.936–69.523) | 72.549 ms (68.159–82.230) |
+| temporarily disabled | 63.730 ms (58.932–69.642) | 72.060 ms (65.740–79.783) |
+| enabled, final run | 64.659 ms (60.185–73.752) | 75.138 ms (68.534–86.187) |
+
+The enabled/disabled differences are within the observed run-to-run spread; no measurable idle-watcher collection penalty or regression was seen. This samples the idle event queue, not a live fault storm. Full profiles: `TECHNICAL_REPORTS/runs/issue-14-xid-fairness/perf-ticks-watcher-{enabled,disabled}.log` and `perf-ticks-watcher-enabled-final.log`. Separate 100-call reader timings are also retained in the same directory.
+
+### Validation
+
+- Local `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, and `cargo test -p all-smi`: passed (2,091 library tests passed / 2 ignored; integration and doctest targets passed).
+- Shadeform RTX PRO 6000 Blackwell Server Edition; driver 580.126.09 / CUDA 13.0 / DCGM 4.7.0 / `rustc 1.99.1 (58cf8f9c3 2026-10-13)`. `gpu-test.sh` passed (`cargo test --release`: 2,091 passed / 2 ignored, plus all integration/doc targets; live GPM parity passed). `cargo build --release --workspace` built the main crate and both `liball_smi_amd.so` and `liball_smi_dcgm.so`. Ten default-parallel `library_api_test` runs passed 26/26 each.
+- `remote-release-smoke.sh`: `doctor --only nvidia.gpm,nvidia.dcgm` passed all 4 checks (0 warnings/failures); AMD doctor 3 pass / 0 fail / 5 expected skips; AMD plugin tests 12/12. Live `/metrics` emitted `source="gpm"` by default (20 series) and `source="dcgm"` in the DCGM fallback (13 series). `nvidia-smi` remained responsive.
+- `sudo -n dmesg` showed no Xid, reset, segfault, RCU stall, or `BUG:`. It did show a host-provided NVSwitch kernel/user version mismatch warning (kernel 580.126.09, user 590.48.01); NVIDIA doctor and live scrapes passed on this instance.
+- Instance `ed16b876-2a99-490d-99ff-5b243c9dc707`, created 06:35:52 UTC at $2.19/hour, was deleted and `shadeform.py status` confirmed no local state. Approximately 27 minutes elapsed (about $0.99 at the listed hourly rate; billing granularity may vary).
+- Evidence: `TECHNICAL_REPORTS/runs/issue-14-xid-fairness/` and `TECHNICAL_REPORTS/runs/2026-10-17T064642Z/`; transient IPs redacted from console logs.

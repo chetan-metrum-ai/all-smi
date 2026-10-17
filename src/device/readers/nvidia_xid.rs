@@ -118,10 +118,11 @@ fn xid_watcher_loop() {
     };
 
     loop {
-        // Keep the event wait within the same process-wide NVML critical
-        // section as reader queries and GPM samples. Use a short timeout so
-        // polling readers are not held up waiting for the event queue.
-        let event = super::nvidia_nvml::with_shared_nvml(|_| match set.wait(10) {
+        // NVML thread safety is the documented default, but GPM sampling is
+        // explicitly not thread-safe. Keep event waits serialized with GPM
+        // calls and cap their lock hold to 1 ms. The longer idle backoff below
+        // preserves low polling overhead when no event is queued.
+        let event = super::nvidia_nvml::with_shared_nvml(|_| match set.wait(1) {
             Ok(data) => {
                 let uuid = data.device.uuid().unwrap_or_else(|_| "unknown".to_string());
                 let xid = if data.event_type.contains(EventTypes::CRITICAL_XID_ERROR) {
@@ -136,14 +137,17 @@ fn xid_watcher_loop() {
                 } else {
                     None
                 };
-                if let Some(xid) = xid {
-                    record_event(uuid, xid);
-                }
-                true
+                xid.map(|xid| (uuid, xid))
             }
-            Err(_) => false,
+            Err(_) => None,
         });
-        if !matches!(event, Ok(true)) {
+        if let Ok(Some((uuid, xid))) = event {
+            // std::sync::Mutex is not fair: briefly yield after each event so
+            // a queued XID burst cannot repeatedly reacquire API_LOCK ahead
+            // of reader polls. Update the independent event state unlocked.
+            record_event(uuid, xid);
+            thread::sleep(Duration::from_millis(1));
+        } else {
             thread::sleep(Duration::from_millis(50));
         }
     }

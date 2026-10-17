@@ -1,0 +1,9 @@
+   Compiling all-smi v0.27.1 (/home/shadeform/all-smi)
+    Finished `release` profile [optimized] target(s) in 1m 23s
+     Running tests/xid_latency_bench.rs (target/release/deps/xid_latency_bench-deee793a93468fc0)
+
+running 1 test
+XID_LATENCY_BENCH mode=watcher-enabled-final n=100 p50_ms=59.378 p95_ms=64.021 max_ms=65.077
+test measure_nvidia_reader_latency ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.72s

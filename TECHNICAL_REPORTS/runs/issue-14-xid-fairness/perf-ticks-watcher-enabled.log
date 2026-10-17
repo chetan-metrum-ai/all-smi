@@ -1,0 +1,43 @@
+    Finished `release` profile [optimized] target(s) in 0.13s
+     Running tests/perf_tick_stages.rs (target/release/deps/perf_tick_stages-9ae1de3ca677a0f4)
+
+running 1 test
+reader construction: 132.789 ms
+first tick: 357 processes, 1 GPU rows, 1 storage rows
+
+| first tick | time |
+|---|---|
+| gpu.get_gpu_info | 1523.456 ms |
+| cpu.get_cpu_info | 14.135 ms |
+| storage (initial list) | 0.365 ms |
+| process refresh (full) | 30.310 ms |
+| update_process_cache | 2.851 ms |
+| whole tick | 1579.566 ms |
+| reader construction + whole tick (time to first data) | 1712.355 ms |
+
+| steady-state stage (1 s cadence) | avg | min | max | ticks |
+|---|---|---|---|---|
+| gpu.get_gpu_info (runs collect_once) | 63.546 ms | 57.936 ms | 69.523 ms | 30 |
+| gpu processes + vgpu + mig | 4.813 ms | 2.856 ms | 9.073 ms | 30 |
+| cpu.get_cpu_info | 0.865 ms | 0.689 ms | 1.242 ms | 30 |
+| memory.get_memory_info | 0.033 ms | 0.022 ms | 0.188 ms | 30 |
+| chassis.get_chassis_info | 0.016 ms | 0.012 ms | 0.025 ms | 30 |
+| storage (DiskCache::storage_info) | 0.041 ms | 0.025 ms | 0.080 ms | 30 |
+| process refresh (full, every 5th) | 6.530 ms | 6.145 ms | 7.568 ms | 6 |
+| process refresh (selective) | 1.959 ms | 1.526 ms | 2.815 ms | 24 |
+| process sampler (full ticks) | 1.684 ms | 1.506 ms | 2.309 ms | 6 |
+| process sampler (selective ticks) | 1.939 ms | 1.506 ms | 2.790 ms | 24 |
+| update_process_cache (full ticks) | 0.205 ms | 0.170 ms | 0.324 ms | 6 |
+| update_process_cache (selective ticks) | 0.174 ms | 0.125 ms | 0.251 ms | 24 |
+| merge + sort + truncate | 0.170 ms | 0.149 ms | 0.246 ms | 30 |
+| whole tick | 72.549 ms | 68.159 ms | 82.230 ms | 30 |
+
+process CPU during steady-state ticks: 915.768 ms over 2176.457 ms of tick work, 3.05 % of one core at 1 s
+
+| mount table enumeration | avg | min | max | runs |
+|---|---|---|---|---|
+| DiskCache list refresh (background, every 30 s) | 0.103 ms | 0.083 ms | 0.152 ms | 5 |
+| Disks::new_with_refreshed_list (old per-tick path) | 0.188 ms | 0.158 ms | 0.226 ms | 5 |
+test perf_tick_stages ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 41.39s

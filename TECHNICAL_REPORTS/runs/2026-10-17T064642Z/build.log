@@ -1,0 +1,30 @@
+=== cargo build --release ===
+   Compiling tokio v1.53.1
+   Compiling rustix v1.1.5
+   Compiling all-smi v0.27.1 (/home/shadeform/all-smi)
+   Compiling polling v3.11.0
+   Compiling xattr v1.6.1
+   Compiling crossterm v0.29.0
+   Compiling tar v0.4.46
+   Compiling async-io v2.6.0
+   Compiling async-signal v0.2.14
+   Compiling tokio-util v0.7.19
+   Compiling tokio-stream v0.1.19
+   Compiling tokio-rustls v0.26.6
+   Compiling russh-util v0.52.0
+   Compiling russh v0.63.3
+   Compiling async-process v2.5.0
+   Compiling zbus v5.19.0
+   Compiling h2 v0.4.19
+   Compiling tower v0.5.3
+   Compiling tower-http v0.6.11
+   Compiling hyper v1.11.1
+   Compiling hyper-util v0.1.21
+   Compiling cgroups-rs v0.5.1
+   Compiling hyper-timeout v0.5.2
+   Compiling axum v0.8.9
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling tonic v0.14.6
+   Compiling tonic-prost v0.14.6
+    Finished `release` profile [optimized] target(s) in 1m 29s
